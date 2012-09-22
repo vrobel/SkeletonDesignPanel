@@ -1,7 +1,8 @@
-package{
+package utils{
 	import adobe.utils.MMExecute;
 	
 	import akdcl.skeleton.Armature;
+	import akdcl.skeleton.events.Event;
 	import akdcl.skeleton.factorys.BaseFactory;
 	import akdcl.skeleton.objects.AnimationData;
 	import akdcl.skeleton.objects.MovementBoneData;
@@ -36,6 +37,7 @@ package{
 	import mx.controls.Alert;
 	import mx.managers.PopUpManager;
 	
+	
 	[Bindable]
 	public final class FLAData extends EventDispatcher{
 		public static const AT_NAME:String = ConstValues.AT + ConstValues.A_NAME;
@@ -63,6 +65,7 @@ package{
 		private var armatureXML:XML;
 		private var animationXML:XML;
 		private var movementXML:XML;
+		private var boneXML:XML;
 		private var movementBoneXML:XML;
 		
 		private var urlLoader:URLLoader;
@@ -73,8 +76,8 @@ package{
 		private var saveList:Array;
 		
 		private var skeletonData:SkeletonData;
-		private var armatures:Object;
 		private var armature:Armature;
+		private var armatures:Object;
 		private var shape:Shape;
 		private var alert:Alert;
 		private var isDraged:Boolean;
@@ -96,7 +99,7 @@ package{
 		public var dataImportAC:ArrayCollection = new ArrayCollection(["All library items", "Seleted items", "Exported SWF/PNG"]);
 		
 		public var dataExportID:int = 0;
-		public var dataExportAC:ArrayCollection = new ArrayCollection(["PNG", "SWF", "JSON"]);
+		public var dataExportAC:ArrayCollection = new ArrayCollection(["SWF", "PNG", "JSON"]);
 		
 		public var textureMaxWidthID:int = 2;
 		public var textureMaxWidthAC:ArrayCollection = new ArrayCollection([128, 256, 512, 1024, 2048, 4096]);
@@ -183,7 +186,7 @@ package{
 			
 			urlLoader = new URLLoader();
 			if(JSFL.isAvailable){
-				urlLoader.addEventListener(Event.COMPLETE, onJSFLLoadedHandler);
+				urlLoader.addEventListener(flash.events.Event.COMPLETE, onJSFLLoadedHandler);
 				urlLoader.addEventListener(IOErrorEvent.IO_ERROR, onJSFLLoadedHandler);
 				urlLoader.load(new URLRequest(JSFL.JSFL_URL));
 			}
@@ -192,12 +195,11 @@ package{
 			shape = new Shape();
 			shape.graphics.drawRect(0,0,100,100);
 			container.addChild(shape);
-			container.addEventListener(Event.ENTER_FRAME, onUpdateDisplayHandler);
+			container.addEventListener(flash.events.Event.ENTER_FRAME, onUpdateDisplayHandler);
 			container.addEventListener(MouseEvent.MOUSE_DOWN, onContainerMouseHandler);
-			container.addEventListener(MouseEvent.MOUSE_UP, onContainerMouseHandler);
 		}
 		
-		private function onUpdateDisplayHandler(_e:Event):void{
+		private function onUpdateDisplayHandler(_e:flash.events.Event):void{
 			var _sW:int;
 			var _sH:int;
 			var _display:Object;
@@ -210,11 +212,11 @@ package{
 					maxWidth = Math.max(_display.width, maxWidth);
 					maxHeight = Math.max(_display.height, maxHeight);
 					if(_sW < maxWidth || _sH < maxHeight){
-						_sW = shape.width = maxWidth * 1.2;
-						_sH = shape.height = maxHeight * 1.2;
-					}else if(_sW > maxWidth * 1.5 || _sH > maxHeight * 1.5){
-						_sW = shape.width = maxWidth * 1.2;
-						_sH = shape.height = maxHeight * 1.2;
+						_sW = shape.width = maxWidth * 1.4;
+						_sH = shape.height = maxHeight * 1.4;
+					}else if(_sW > maxWidth * 1.8 || _sH > maxHeight * 1.8){
+						_sW = shape.width = maxWidth * 1.4;
+						_sH = shape.height = maxHeight * 1.4;
 					}
 					if(!isDraged){
 						_display.x = _sW * 0.5;
@@ -225,7 +227,10 @@ package{
 			}
 		}
 		
-		private function onContainerMouseHandler(_e:Event):void{
+		private function onContainerMouseHandler(_e:flash.events.Event):void{
+			if(container.stage){
+				container.stage.addEventListener(MouseEvent.MOUSE_UP, onContainerMouseHandler);
+			}
 			var _display:Object = armature?armature.display:null;
 			if(!_display){
 				return;
@@ -241,11 +246,11 @@ package{
 			}
 		}
 		
-		private function onJSFLLoadedHandler(_e:Event):void{
-			urlLoader.removeEventListener(Event.COMPLETE, onJSFLLoadedHandler);
+		private function onJSFLLoadedHandler(_e:flash.events.Event):void{
+			urlLoader.removeEventListener(flash.events.Event.COMPLETE, onJSFLLoadedHandler);
 			urlLoader.removeEventListener(IOErrorEvent.IO_ERROR, onJSFLLoadedHandler);
 			switch(_e.type){
-				case Event.COMPLETE:
+				case flash.events.Event.COMPLETE:
 					JSFL.skeletonJSFL = _e.target.data;
 					break;
 				case IOErrorEvent.IO_ERROR:
@@ -266,21 +271,21 @@ package{
 					}
 					break;
 				case 2:
-					fileREF.addEventListener(Event.SELECT, onFileLoadHaneler);
+					fileREF.addEventListener(flash.events.Event.SELECT, onFileLoadHaneler);
 					fileREF.browse(FILE_FILTER_ARRAY);
 					break;
 			}
 		}
 		
-		private function onFileLoadHaneler(_e:Event):void{
+		private function onFileLoadHaneler(_e:flash.events.Event):void{
 			switch(_e.type){
-				case Event.SELECT:
-					fileREF.removeEventListener(Event.SELECT, onFileLoadHaneler);
-					fileREF.addEventListener(Event.COMPLETE, onFileLoadHaneler);
+				case flash.events.Event.SELECT:
+					fileREF.removeEventListener(flash.events.Event.SELECT, onFileLoadHaneler);
+					fileREF.addEventListener(flash.events.Event.COMPLETE, onFileLoadHaneler);
 					fileREF.load();
 					break;
-				case Event.COMPLETE:
-					fileREF.removeEventListener(Event.COMPLETE, onFileLoadHaneler);
+				case flash.events.Event.COMPLETE:
+					fileREF.removeEventListener(flash.events.Event.COMPLETE, onFileLoadHaneler);
 					setData(fileREF.data);
 					break;
 			}
@@ -297,8 +302,7 @@ package{
 			}
 			isExporting = true;
 			if(!isSWFSource && dataImportID !=2 && (isTextureChanged || textureSortID == 1)){
-				textureAtlasXML = packTexturesAndExportSWF(textureAtlasXML);
-				xml[ConstValues.TEXTURE_ATLAS] = textureAtlasXML;
+				exportAndLoadSWF();
 			}else{
 				exportStart();
 			}
@@ -311,16 +315,16 @@ package{
 			
 			switch(dataExportID){
 				case 0:
-					saveList.push({name:_name + ".png", data:getExportPNG()});
-					exportStep();
-					break;
-				case 1:
 					_data = getExportSWF();
 					if(_data){
 						saveList.push({name:_name + ".swf", data:_data});
 					}else{
 						Alert.show("当前导入的数据格式不支持导出 SWF！");
 					}
+					exportStep();
+					break;
+				case 1:
+					saveList.push({name:_name + ".png", data:getExportPNG()});
 					exportStep();
 					break;
 				case 2:
@@ -361,21 +365,21 @@ package{
 		
 		private function exportStep():void{
 			if(saveList.length == 0){
-				fileREF.removeEventListener(Event.CANCEL, onFileSaveHandler);
-				fileREF.removeEventListener(Event.COMPLETE, onFileSaveHandler);
+				fileREF.removeEventListener(flash.events.Event.CANCEL, onFileSaveHandler);
+				fileREF.removeEventListener(flash.events.Event.COMPLETE, onFileSaveHandler);
 				isExporting = false;
 				return;
 			}
 			var _data:Object = saveList.pop();
-			fileREF.addEventListener(Event.CANCEL, onFileSaveHandler);
-			fileREF.addEventListener(Event.COMPLETE, onFileSaveHandler);
+			fileREF.addEventListener(flash.events.Event.CANCEL, onFileSaveHandler);
+			fileREF.addEventListener(flash.events.Event.COMPLETE, onFileSaveHandler);
 			fileREF.save(_data.data, _data.name);
 		}
 		
-		private function onFileSaveHandler(_e:Event):void{
+		private function onFileSaveHandler(_e:flash.events.Event):void{
 			switch(_e.type){
-				case Event.CANCEL:
-				case Event.COMPLETE:
+				case flash.events.Event.CANCEL:
+				case flash.events.Event.COMPLETE:
 					exportStep();
 					break;
 			}
@@ -394,12 +398,12 @@ package{
 			}
 			alert = Alert.show("Waitting...");
 			flaXML = null;
-			container.addEventListener(Event.ENTER_FRAME, onGenerateFLAXMLHandler);
+			container.addEventListener(flash.events.Event.ENTER_FRAME, onGenerateFLAXMLHandler);
 		}
 		
-		private function onGenerateFLAXMLHandler(_e:Event):void{
+		private function onGenerateFLAXMLHandler(_e:flash.events.Event):void{
 			if(tempArr.length == 0){
-				container.removeEventListener(Event.ENTER_FRAME, onGenerateFLAXMLHandler);
+				container.removeEventListener(flash.events.Event.ENTER_FRAME, onGenerateFLAXMLHandler);
 				generateTextureSWF();
 				return;
 			}
@@ -417,13 +421,15 @@ package{
 			tempSubTextureXMLList = tempTextureAtlasXML.elements(ConstValues.SUB_TEXTURE);
 			tempIndex = tempSubTextureXMLList.length();
 			JSFL.clearTextureSWFItem(tempIndex);
-			container.addEventListener(Event.ENTER_FRAME, onGenerateTextureSWFHandler);
+			container.addEventListener(flash.events.Event.ENTER_FRAME, onGenerateTextureSWFHandler);
 		}
 		
-		private function onGenerateTextureSWFHandler(_e:Event):void{
+		private function onGenerateTextureSWFHandler(_e:flash.events.Event):void{
 			if(tempIndex <= 0){
-				container.removeEventListener(Event.ENTER_FRAME, onGenerateTextureSWFHandler);
-				flaXML[ConstValues.TEXTURE_ATLAS] = packTexturesAndExportSWF(tempTextureAtlasXML);
+				container.removeEventListener(flash.events.Event.ENTER_FRAME, onGenerateTextureSWFHandler);
+				TextureUtil.packTextures(uint(textureMaxWidthAC.getItemAt(textureMaxWidthID)), textureInterval, false, tempTextureAtlasXML);
+				JSFL.packTextures(tempTextureAtlasXML);
+				exportAndLoadSWF();
 				if(alert){
 					PopUpManager.removePopUp(alert);
 					alert = null;
@@ -435,19 +441,17 @@ package{
 			tempIndex --;
 		}
 		
-		private function packTexturesAndExportSWF(_textureAtlasXML:XML):XML{
-			_textureAtlasXML = JSFL.packTextures(uint(textureMaxWidthAC.getItemAt(textureMaxWidthID)), textureInterval, _textureAtlasXML);
+		private function exportAndLoadSWF():void{
 			var _swfURL:String = JSFL.exportSWF();
-			urlLoader.addEventListener(Event.COMPLETE, onURLLoaderCompleteHandler);
+			urlLoader.addEventListener(flash.events.Event.COMPLETE, onURLLoaderCompleteHandler);
 			urlLoader.dataFormat = URLLoaderDataFormat.BINARY;
 			urlLoader.load(new URLRequest(_swfURL));
-			return _textureAtlasXML;
 		}
 		
-		private function onURLLoaderCompleteHandler(_e:Event):void{
+		private function onURLLoaderCompleteHandler(_e:flash.events.Event):void{
 			isTextureChanged = false;
 			isSWFSource = false;
-			urlLoader.removeEventListener(Event.COMPLETE, onURLLoaderCompleteHandler);
+			urlLoader.removeEventListener(flash.events.Event.COMPLETE, onURLLoaderCompleteHandler);
 			updateArmatures(_e.target.data, flaXML);
 			flaXML = null;
 		}
@@ -460,7 +464,7 @@ package{
 			textureAtlasXML = xml.elements(ConstValues.TEXTURE_ATLAS)[0];
 			
 			armaturesMC.source = armaturesXML.elements(ConstValues.ARMATURE);
-			texturesMC.source = textureAtlasXML.elements(ConstValues.SUB_TEXTURE);
+			//texturesMC.source = textureAtlasXML.elements(ConstValues.SUB_TEXTURE);
 			
 			armatures = {};
 			if(armature){
@@ -479,7 +483,7 @@ package{
 			textureDisplay = skeletonData.textureData.bitmap || skeletonData.textureData.clip;
 			BaseFactory.lastInstance.skeletonData = skeletonData;
 			
-			dispatchEvent(new Event(SOURCE_UPDATE));
+			dispatchEvent(new flash.events.Event(SOURCE_UPDATE));
 			if(isExporting){
 				exportStart();
 			}
@@ -491,7 +495,7 @@ package{
 			var _animationData:AnimationData = skeletonData.getAnimationData(_armatureName);
 			_animationData.addData(generateMovementData(movementXML));
 			armature.animation.play(_movementName);
-			if(!this.isSWFSource){
+			if(!isSWFSource){
 				JSFL.changeMovement(_armatureName, _movementName, movementXML);
 			}
 		}
@@ -512,7 +516,7 @@ package{
 			}
 			
 			armature.animation.play(_movementName);
-			if(!this.isSWFSource){
+			if(!isSWFSource){
 				var _movementXMLCopy:XML = movementXML.copy();
 				delete _movementXMLCopy.elements(ConstValues.BONE).*;
 				JSFL.changeMovement(_armatureName, _movementName, _movementXMLCopy);
@@ -520,13 +524,14 @@ package{
 		}
 		
 		public function updateArmature(_armatureXML:XML):void{
+			isDraged = false;
 			armatureXML = _armatureXML;
 			var _armatureName:String = armatureXML.attribute(ConstValues.A_NAME);
 			animationXML = animationsXML.elements(ConstValues.ANIMATION).(attribute(ConstValues.A_NAME) == _armatureName)[0];
 			if(armatureXML){
-				movementsMC.source = getMovementList();
+				movementsMC.source = getMovementList(animationXML);
 				bonesMC.removeAll();
-				bonesMC.source = getBoneList();
+				bonesMC.source = getBoneList(armatureXML.copy().elements(ConstValues.BONE));
 			}else{
 				movementsMC.source = null
 				bonesMC.removeAll();
@@ -540,16 +545,21 @@ package{
 			if(!armature){
 				armatures[_armatureName] = armature = BaseFactory.lastInstance.buildArmature(_armatureName);
 			}
-			armature.armatureEventCallback = armatureEventCallback;
+			armature.addEventListener(akdcl.skeleton.events.Event.COMPLETE, onArmatureEventHandler);
 			if(armature.display){
+				container.scaleX = container.scaleY = 1;
 				container.addChild(armature.display as DisplayObject);
 			}
 			
-			dispatchEvent(new Event(ARMATURE_UPDATE));
+			dispatchEvent(new flash.events.Event(ARMATURE_UPDATE));
 		}
 		
-		private function armatureEventCallback(_eventType:String, _movementID:String):void{
-			//trace(_eventType, _movementID);
+		private function onArmatureEventHandler(_event:akdcl.skeleton.events.Event, _data:Object):void{
+			switch(_event.type){
+				case akdcl.skeleton.events.Event.COMPLETE:
+					trace((_event.target as Armature).info.name, _data);
+					break;
+			}
 		}
 		
 		public function updateMovement(_movementXML:XML):void{
@@ -559,26 +569,37 @@ package{
 			}
 			maxWidth = 0;
 			maxHeight = 0;
-			dispatchEvent(new Event(MOVEMENT_UPDATE));	
+			dispatchEvent(new flash.events.Event(MOVEMENT_UPDATE));	
 		}
 		
-		public function updateMovementBone(_movementBoneXML:XML):void{
-			if(_movementBoneXML && movementXML){
-				var _boneName:String = _movementBoneXML.attribute(ConstValues.A_NAME);
-				movementBoneXML = movementXML.elements(ConstValues.BONE).(attribute(ConstValues.A_NAME) == _boneName)[0];
+		public function updateMovementBone(_boneXML:XML):void{
+			if(_boneXML){
+				var _boneName:String = _boneXML.attribute(ConstValues.A_NAME);
+				
+				if(movementXML){
+					movementBoneXML = movementXML.elements(ConstValues.BONE).(attribute(ConstValues.A_NAME) == _boneName)[0];
+				}else{
+					movementBoneXML = null;
+				}
+				
+				boneXML = armatureXML.elements(ConstValues.BONE).(attribute(ConstValues.A_NAME) == _boneName)[0];
+				
+				texturesMC.source = boneXML.elements(ConstValues.DISPLAY);
 			}else{
 				movementBoneXML = null;
+				boneXML = null;
 			}
-			dispatchEvent(new Event(BONE_UPDATE));
+			dispatchEvent(new flash.events.Event(BONE_UPDATE));
 		}
 		
 		public function updateTexture():void{
-			if(isSWFSource){
+			if(isSWFSource || !xml){
 				return;
 			}
 			switch(textureSortID){
 				case 0:
-					JSFL.packTextures(uint(textureMaxWidthAC.getItemAt(textureMaxWidthID)), textureInterval);
+					TextureUtil.packTextures(uint(textureMaxWidthAC.getItemAt(textureMaxWidthID)), textureInterval, false, textureAtlasXML);
+					JSFL.packTextures(textureAtlasXML);
 					isTextureChanged = true;
 					break;
 			}
@@ -610,34 +631,33 @@ package{
 			}
 		}
 		
-		private function getMovementList():XMLList{
-			var _animationXML:XML = animationsXML[ConstValues.ANIMATION].(attribute(ConstValues.A_NAME) == armatureXML.attribute(ConstValues.A_NAME))[0];
+		private static function getMovementList(_animationXML:XML):XMLList{
 			if(_animationXML){
 				return _animationXML[ConstValues.MOVEMENT];
 			}
 			return null;
 		}
 		
-		private function getBoneList():XMLList{
-			var _xmlList:XMLList = armatureXML.copy()[ConstValues.BONE];
+		private static function getBoneList(_boneXMLList:XMLList):XMLList{
 			var _dic:Object = {};
 			var _parentXML:XML;
 			var _parentName:String;
 			var _boneXML:XML;
-			var _length:int = _xmlList.length();
+			var _length:int = _boneXMLList.length();
 			for(var _i:int = _length-1;_i >= 0;_i --){
-				_boneXML = _xmlList[_i];
+				_boneXML = _boneXMLList[_i];
+				delete _boneXML[ConstValues.DISPLAY];
 				_dic[_boneXML.attribute(ConstValues.A_NAME)] = _boneXML;
 				_parentName = _boneXML.attribute(ConstValues.A_PARENT);
 				if (_parentName){
-					_parentXML = _dic[_parentName] || _xmlList.(attribute(ConstValues.A_NAME) == _parentName)[0];
+					_parentXML = _dic[_parentName] || _boneXMLList.(attribute(ConstValues.A_NAME) == _parentName)[0];
 					if (_parentXML){
-						delete _xmlList[_i];
+						delete _boneXMLList[_i];
 						_parentXML.appendChild(_boneXML);
 					}
 				}
 			}
-			return _xmlList;
+			return _boneXMLList;
 		}
 		
 		private static function mixSkeletonXML(_xml1:XML, _xml2:XML):void{

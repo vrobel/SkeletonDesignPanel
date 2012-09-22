@@ -1,4 +1,4 @@
-package
+package utils
 {
 	import adobe.utils.MMExecute;
 	
@@ -8,8 +8,9 @@ package
 	public class JSFL
 	{
 		public static const JSFL_URL:String = "SkeletonSWFPanel/skeleton.jsfl";
-		
 		public static var skeletonJSFL:String;
+		
+		private static const JSFL_XML:XML = <root></root>;
 		
 		public static function get isAvailable():Boolean{
 			try{
@@ -66,14 +67,9 @@ package
 			runJSFL(skeletonJSFL, "addTextureToSWFItem('" + _itemName + "', " + _index + ");");
 		}
 		
-		public static function packTextures(_widthMax:uint, _interval:uint, _textureAtlasXML:XML = null):XML{
-			var _str:String;
-			if(_textureAtlasXML){
-				_str = xmlToString(_textureAtlasXML);
-				return XML(runJSFL(skeletonJSFL, "packTextures(" + _widthMax + "," + _interval + ",false,'" + _str + "').toXMLString();"));
-			}
-			runJSFL(skeletonJSFL, "packTextures(" + _widthMax + "," + _interval + ",false);");
-			return null;
+		public static function packTextures(_textureAtlasXML:XML = null):void{
+			var _str:String = xmlToString(_textureAtlasXML);
+			runJSFL(skeletonJSFL, "packTextures('" + _str + "');");
 		}
 		
 		public static function exportSWF():String{

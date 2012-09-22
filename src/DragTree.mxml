@@ -15,16 +15,12 @@
 	</fx:Declarations>
 	<fx:Script>
 		<![CDATA[
-			
-			import mx.collections.XMLListCollection;
 			import mx.controls.treeClasses.TreeItemRenderer;
 			import mx.controls.treeClasses.TreeListData;
 			
 			import mx.events.DragEvent;
 			import mx.events.ListEvent;
 			import mx.events.TreeEvent;
-			
-			public static const DRAG_DATA_CHANGE:String="DragDataChange";
 			
 			//isBranch = "false"
 			//folderOpenIcon="" 

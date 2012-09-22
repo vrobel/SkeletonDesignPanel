@@ -34,15 +34,12 @@ function errorDOM(){
 	return false;
 }
 
-//dr默认为1
-//x y r skXY 默认为 0
-//scXY 默认为 1
-
 var SKELETON = "skeleton";
 
 var ARMATURES = "armatures";
 var ARMATURE = "armature";
 var BONE = "b";
+var DISPLAY = "d";
 
 var ANIMATIONS = "animations";
 var ANIMATION = "animation";
@@ -72,8 +69,7 @@ var A_SCALE_Y = "cY";
 var A_SKEW_X = "kX";
 var A_SKEW_Y = "kY";
 var A_Z = "z";
-var A_HIDE = "hide";
-var A_IMAGE = "img";
+var A_DISPLAY_INDEX = "dI";
 var A_EVENT = "evt";
 var A_SOUND = "sd";
 var A_SOUND_EFFECT = "sdE";
@@ -81,6 +77,9 @@ var A_TWEEN_EASING ="twE";
 var A_TWEEN_ROTATE ="twR";
 var A_IS_ARMATURE = "isArmature";
 var A_MOVEMENT = "mov";
+
+var A_LOCAL_SKEW_X = "localSkewX";
+var A_LOCAL_SKEW_Y = "localSkewY";
 
 var A_WIDTH = "width";
 var A_HEIGHT = "height";
@@ -98,10 +97,11 @@ var MOVIE_CLIP = "movie clip";
 var GRAPHIC = "graphic";
 var STRING = "string";
 var LABEL_TYPE_NAME = "name";
-var DELIM_CHAR = "|";
 var EVENT_PREFIX = "@";
 var MOVEMENT_PREFIX = "#";
 var NO_EASING = "^";
+var DELIM_CHAR = "|";
+var UNDERLINE_CHAR = "_";
 
 var SKELETON_PANEL = "SkeletonSWFPanel";
 var ARMATURE_DATA = "armatureData";
@@ -115,6 +115,11 @@ var INFO = "[INFO]";
 
 var pointTemp = {x:0, y:0, skewX:0, skewY:0};
 
+var xml = null;
+var armaturesXML = null;
+var animationsXML = null;
+var textureAtlasXML = null;
+
 function getArmatureList(_items){
 	fl.outputPanel.clear();
 	dom.exitEditMode();
@@ -127,39 +132,38 @@ function getArmatureList(_items){
 	return _arr;
 }
 
-function generateArmature(_itemName){
-	trace(_itemName);
-	var _item = library.items[library.findItemIndex(_itemName)];
+function generateArmature(_armatureName){
+	if(!xml){
+		var _domName = dom.name.split(".")[0];
+		xml = <{SKELETON} {A_NAME} = {_domName}/>;
+		armaturesXML = <{ARMATURES}/>;
+		animationsXML = <{ANIMATIONS}/>;
+		textureAtlasXML = <{TEXTURE_ATLAS} {A_NAME} = {_domName}/>;
+		xml.appendChild(armaturesXML);
+		xml.appendChild(animationsXML);
+		xml.appendChild(textureAtlasXML);
+	}
+	
+	var _item = library.items[library.findItemIndex(_armatureName)];
+	_armatureName = formatName(_item);
+	if(armaturesXML[ARMATURE].(@name == _armatureName)[0]){
+		return;
+	}
 	var _layersFiltered = isArmatureItem(_item);
 	if(!_layersFiltered){
 		return;
 	}
-	var _domName = dom.name.split(".")[0];
-	
-	var _xml = <{SKELETON} {A_NAME} = {_domName}/>;
-	var _armaturesXML = <{ARMATURES}/>;
-	var _animationsXML = <{ANIMATIONS}/>;
-	var _textureAtlasXML = <{TEXTURE_ATLAS} {A_NAME} = {_domName}/>;
-	_xml.appendChild(_armaturesXML);
-	_xml.appendChild(_animationsXML);
-	_xml.appendChild(_textureAtlasXML);
-	
-	//骨架名，并备份到 data，增强同步稳定
-	var _armatureName = formatName(_item);
 	
 	var _armatureXML = <{ARMATURE} {A_NAME} = {_armatureName}/>;
 	var _animationXML = <{ANIMATION} {A_NAME} = {_armatureName}/>;
-	
 	var _connection = getArmatureConnection(_item);
 	var _armatureConnectionXML = _connection?XML(_connection):_armatureXML.copy();
 	
-	_armaturesXML.appendChild(_armatureXML);
+	armaturesXML.appendChild(_armatureXML);
 	var _mainLayer = _layersFiltered.shift();
 	//只有1个 movement 且movement.duration只有1，则定义没有动画的骨骼
 	if(_mainLayer.frameCount > 1){
-		_animationsXML.appendChild(_animationXML);
-	}else{
-		var _noAnimation = true;
+		animationsXML.appendChild(_animationXML);
 	}
 	
 	var _keyFrames = filterKeyFrames(_mainLayer.frames);
@@ -191,15 +195,15 @@ function generateArmature(_itemName){
 		if(_mainFrame && _isEndFrame){
 			//结束前帧
 			//checkTime(_armatureName);
-			generateMovement(_item, _mainFrame, _layersFiltered, _noAnimation, _armatureXML, _animationXML, _textureAtlasXML, _armatureConnectionXML);
+			generateMovement(_item, _mainFrame, _layersFiltered, _armatureXML, _animationXML, _armatureConnectionXML);
 		}
 	}
 	
 	setArmatureConnection(_item, _armatureXML.toXMLString());
-	return _xml;
+	return xml;
 }
 
-function generateMovement(_item, _mainFrame, _layers, _noAnimation, _armatureXML, _animationXML, _textureAtlasXML, _armatureConnectionXML){
+function generateMovement(_item, _mainFrame, _layers, _armatureXML, _animationXML, _armatureConnectionXML){
 	var _start = _mainFrame.frame.startFrame;
 	var _duration = _mainFrame.duration;
 	var _movementXML = createMovementXML(_item, _mainFrame.frame.name, _duration);
@@ -284,8 +288,8 @@ function generateMovement(_item, _mainFrame, _layers, _noAnimation, _armatureXML
 				_boneList[_i] = _z;
 			}
 			
-			_movementBoneXML = createMovementBone(_item, _movementXML, _boneName);
-			_frameXML = generateFrame(_layers, Math.max(_frame.startFrame, _start), _z, _symbol, _boneName, _boneType, _noAnimation, _armatureXML, _armatureConnectionXML);
+			_movementBoneXML = createMovementBone(_movementXML, _boneName);
+			_frameXML = generateFrame(_layers, Math.max(_frame.startFrame, _start), _z, _symbol, _boneName, _boneType, _armatureXML, _armatureConnectionXML);
 			
 			//补间
 			if(isNoEasingFrame(_frame)){
@@ -293,7 +297,7 @@ function generateMovement(_item, _mainFrame, _layers, _noAnimation, _armatureXML
 				_frameXML[AT + A_TWEEN_EASING] = NaN;
 			}else if(_frame.tweenType == "motion"){
 				_frameXML[AT + A_TWEEN_EASING] = formatNumber(_frame.tweenEasing * 0.01);
-				var _tweenRotate;
+				var _tweenRotate = NaN;
 				switch(_frame.motionTweenRotate){
 					case "clockwise":
 						_tweenRotate = _frame.motionTweenRotateTimes;
@@ -302,8 +306,7 @@ function generateMovement(_item, _mainFrame, _layers, _noAnimation, _armatureXML
 						_tweenRotate = - _frame.motionTweenRotateTimes;
 						break;
 				}
-				//tweenRotate属性应留给补间的到点而不是起点，需要等_movementBoneXML建立完毕后向下传递
-				if(_tweenRotate){
+				if(!isNaN(_tweenRotate)){
 					_frameXML[AT + A_TWEEN_ROTATE] = _tweenRotate;
 				}
 			}
@@ -356,37 +359,57 @@ function generateMovement(_item, _mainFrame, _layers, _noAnimation, _armatureXML
 	var _prevFrameXML;
 	var _prevStart;
 	var _prevDuration;
-	var _imageName;
+	var _frameIndex;
 	
 	for each(var _movementBoneXML in _movementXML[BONE]){
-		_imageName = null;
+		_boneName = _movementBoneXML[AT + A_NAME];
 		for each(_frameXML in _movementBoneXML[FRAME]){
-			if(_frameXML[AT + A_IMAGE] == _imageName){
-				delete _frameXML[AT + A_IMAGE];
-			}else{
-				_imageName = _frameXML[AT + A_IMAGE];
-				if(Number(_frameXML[AT + A_IS_ARMATURE]) != 1){
-					createTextureXML(_textureAtlasXML, _imageName);
-				}
-			}
-			
 			_frameStart = Number(_frameXML[AT + A_START]);
-			if(_frameXML.childIndex() == 0){
+			_frameIndex = _frameXML.childIndex();
+			if(_frameIndex == 0){
 				if(_frameStart > 0){
-					_movementBoneXML.prependChild(<{FRAME} {A_DURATION} = {_frameStart} {A_HIDE} = "1"/>);
+					_movementBoneXML.prependChild(<{FRAME} {A_DURATION} = {_frameStart} {A_DISPLAY_INDEX} = "-1"/>);
 				}
 			}else {
 				_prevStart = Number(_prevFrameXML[AT + A_START]);
 				_prevDuration = Number(_prevFrameXML[AT + A_DURATION]);
 				if(_frameStart > _prevStart + _prevDuration){
-					_movementBoneXML.insertChildBefore(_frameXML, <{FRAME} {A_DURATION} = {_frameStart - _prevStart - _prevDuration} {A_HIDE} = "1"/>);
+					_movementBoneXML.insertChildBefore(_frameXML, <{FRAME} {A_DURATION} = {_frameStart - _prevStart - _prevDuration} {A_DISPLAY_INDEX} = "-1"/>);
 				}
 			}
-			if(_frameXML.childIndex() == _movementBoneXML[FRAME].length() - 1){
+			if(_frameIndex == _movementBoneXML[FRAME].length() - 1){
 				_frameStart = Number(_frameXML[AT + A_START]);
 				_prevDuration = Number(_frameXML[AT + A_DURATION]);
 				if(_frameStart + _prevDuration < _duration){
-					_movementBoneXML.appendChild(<{FRAME} {A_DURATION} = {_duration - _frameStart - _prevDuration} {A_HIDE} = "1"/>);
+					_movementBoneXML.appendChild(<{FRAME} {A_DURATION} = {_duration - _frameStart - _prevDuration} {A_DISPLAY_INDEX} = "-1"/>);
+				}
+			}else{
+				//tweenRotate属性应留给补间的到点而不是起点
+				//逆时针x0或顺时针x0有时需要忽略
+				if(_frameXML[AT + A_TWEEN_ROTATE][0]){
+					var _nextFrameXML = _movementBoneXML[FRAME][_frameIndex + 1];
+					var _dSkY = Number(_nextFrameXML[AT + A_LOCAL_SKEW_Y]) - Number(_frameXML[AT + A_LOCAL_SKEW_Y]);
+					if(_dSkY < -180){
+						_dSkY += 360;
+					}
+					if(_dSkY > 180){
+						_dSkY -= 360;
+					}
+					_tweenRotate = Number(_frameXML[AT + A_TWEEN_ROTATE]);
+								trace(_dSkY, _tweenRotate);
+					if(_dSkY !=0){
+						if(_dSkY < 0){
+							if(_tweenRotate >= 0){
+								_tweenRotate ++;
+							}
+						}else{
+							if(_tweenRotate < 0){
+								_tweenRotate --;
+							}
+						}
+					}
+					_nextFrameXML[AT + A_TWEEN_ROTATE] = _tweenRotate;
+					delete _frameXML[AT + A_TWEEN_ROTATE];
 				}
 			}
 			_prevFrameXML = _frameXML;
@@ -396,12 +419,12 @@ function generateMovement(_item, _mainFrame, _layers, _noAnimation, _armatureXML
 	_animationXML.appendChild(_movementXML);
 }
 
-function generateFrame(_layers, _start, _z, _bone, _boneName, _boneType, _noAnimation, _armatureXML, _armatureConnectionXML){
+function generateFrame(_layers, _start, _z, _boneInstance, _boneName, _boneType, _armatureXML, _armatureConnectionXML){
 	var _frameXML = <{FRAME}/>;
 	//寻找骨骼配置，读取父骨骼关系
 	var _boneXML = _armatureXML[BONE].(@name == _boneName)[0];
 	var _parentName;
-	var _parent;
+	var _parentInstance;
 	if(_boneXML){
 		_parentName = _boneXML[AT + A_PARENT][0];
 	}else{
@@ -413,17 +436,17 @@ function generateFrame(_layers, _start, _z, _bone, _boneName, _boneType, _noAnim
 	}
 	//查找父骨骼
 	if(_parentName){
-		_parent = getBoneFromLayers(_layers, _parentName, _start);
+		_parentInstance = getBoneFromLayers(_layers, _parentName, _start);
 	}
-	if (_parent) {
-		transfromParentPoint(pointTemp, _bone, _parent);
-		pointTemp.skewX = _bone.skewX - _parent.skewX;
-		pointTemp.skewY = _bone.skewY - _parent.skewY;
+	if (_parentInstance) {
+		transfromParentPoint(pointTemp, _boneInstance, _parentInstance);
+		pointTemp.skewX = _boneInstance.skewX - _parentInstance.skewX;
+		pointTemp.skewY = _boneInstance.skewY - _parentInstance.skewY;
 	}else {
-		pointTemp.x = _bone.x;
-		pointTemp.y = _bone.y;
-		pointTemp.skewX = _bone.skewX;
-		pointTemp.skewY = _bone.skewY;
+		pointTemp.x = _boneInstance.x;
+		pointTemp.y = _boneInstance.y;
+		pointTemp.skewX = _boneInstance.skewX;
+		pointTemp.skewY = _boneInstance.skewY;
 	}
 	
 	if(!_boneXML){
@@ -431,8 +454,8 @@ function generateFrame(_layers, _start, _z, _bone, _boneName, _boneType, _noAnim
 		_boneXML = createBoneXML(_boneName, _parentName, pointTemp, _boneType, _z);
 		_armatureXML.appendChild(_boneXML);
 	}
-	if(!_parent){
-		//未找到父骨骼则删除错误标签
+	if(!_parentInstance){
+		//未找到父骨骼则删除 parent 标签
 		//不应出现骨骼扔拥有子骨骼的时候，却在时间轴上删除该骨骼
 		delete _boneXML[AT + A_PARENT];
 	}
@@ -441,34 +464,38 @@ function generateFrame(_layers, _start, _z, _bone, _boneName, _boneType, _noAnim
 	_frameXML[AT + A_Y] = formatNumber(pointTemp.y - Number(_boneXML[AT + A_Y]));
 	_frameXML[AT + A_SKEW_X] = formatNumber(pointTemp.skewX - Number(_boneXML[AT + A_SKEW_X]));
 	_frameXML[AT + A_SKEW_Y] = formatNumber(pointTemp.skewY - Number(_boneXML[AT + A_SKEW_Y]));
-	_frameXML[AT + A_SCALE_X] = formatNumber(_bone.scaleX);
-	_frameXML[AT + A_SCALE_Y] = formatNumber(_bone.scaleY);
+	_frameXML[AT + A_SCALE_X] = formatNumber(_boneInstance.scaleX);
+	_frameXML[AT + A_SCALE_Y] = formatNumber(_boneInstance.scaleY);
 	_frameXML[AT + A_Z] = _z;
+	_frameXML[AT + A_LOCAL_SKEW_Y] = _boneInstance.skewY;
 	
-	var _imageItem = _bone.libraryItem;
+	
+	var _imageItem = _boneInstance.libraryItem;
 	var _imageName = formatName(_imageItem);
+	var _isArmature = isArmatureItem(_imageItem);
 	if(_imageItem.symbolType != MOVIE_CLIP){
 		_imageItem.symbolType = MOVIE_CLIP;
 	}
-	_frameXML[AT + A_IMAGE] = _imageName;
-	var _isArmature = isArmatureItem(_imageItem);
-	if(_isArmature){
-		_frameXML[AT + A_IS_ARMATURE] = 1;
-	}
-	if(_noAnimation){
-		if(!_boneXML[AT + A_IMAGE][0]){
-			_boneXML[AT + A_IMAGE] = _imageName;
-			if(_isArmature){
-				_boneXML[AT + A_IS_ARMATURE] = 1;
-			}
+	var _displayXML = _boneXML[DISPLAY].(@name == _imageName)[0];
+	if(!_displayXML){
+		_displayXML = <{DISPLAY} {A_NAME} = {_imageName}/>;
+		if(_isArmature){
+			_displayXML[AT + A_IS_ARMATURE] = 1;
 		}
+		_boneXML.appendChild(_displayXML);
+	}
+	_frameXML[AT + A_DISPLAY_INDEX] = _displayXML.childIndex();
+	if(_isArmature){
+		generateArmature(_imageName);
+	}else{
+		createTextureXML(_boneInstance);
 	}
 	return _frameXML;
 }
 
-function createMovementXML(_armature, _movementName, _duration){
-	if(_armature.hasData(ANIMATION_DATA)){
-		var _animationXML = XML(_armature.getData(ANIMATION_DATA));
+function createMovementXML(_item, _movementName, _duration){
+	if(_item.hasData(ANIMATION_DATA)){
+		var _animationXML = XML(_item.getData(ANIMATION_DATA));
 		var _xml = _animationXML[MOVEMENT].(@name == _movementName)[0];
 	}
 	if(!_xml){
@@ -492,7 +519,7 @@ function createMovementXML(_armature, _movementName, _duration){
 	return _xml;
 }
 
-function createMovementBone(_armature, _movementXML, _boneName){
+function createMovementBone(_movementXML, _boneName){
 	var _xml = _movementXML[BONE].(@name == _boneName)[0];
 	if(!_xml){
 		_xml = <{BONE} {A_NAME} = {_boneName}/>;
@@ -517,11 +544,32 @@ function createBoneXML(_name, _parentName, _point, _boneType, _z){
 }
 
 //记录贴图
-function createTextureXML(_textureAtlasXML, _imageName){
-	var _xml = _textureAtlasXML[SUB_TEXTURE].(@name == _imageName)[0];
+function createTextureXML(_instance){
+	var _name = _instance.libraryItem.name;
+	var _xml = textureAtlasXML[SUB_TEXTURE].(@name == _name)[0];
 	if(!_xml){
-		_xml = <{SUB_TEXTURE} {A_NAME} = {_imageName}/>;
-		_textureAtlasXML.appendChild(_xml);
+		_xml = <{SUB_TEXTURE} {A_NAME} = {_name}/>;
+		
+		var _scaleX = _instance.scaleX;
+		var _scaleY = _instance.scaleY;
+		var _skewX = _instance.skewX;
+		var _skewY = _instance.skewY;
+		
+		_instance.scaleX = 1;
+		_instance.scaleY = 1;
+		_instance.skewX = 0;
+		_instance.skewY = 0;
+		
+		_xml[AT + A_PIVOT_X] = formatNumber(_instance.x - _instance.left);
+		_xml[AT + A_PIVOT_Y] = formatNumber(_instance.y - _instance.top);
+		_xml[AT + A_WIDTH] = Math.ceil(_instance.width);
+		_xml[AT + A_HEIGHT] = Math.ceil(_instance.height);
+		
+		_instance.scaleX = _scaleX;
+		_instance.scaleY = _scaleY;
+		_instance.skewX = _skewX;
+		_instance.skewY = _skewY;
+		textureAtlasXML.appendChild(_xml);
 	}
 	return _xml;
 }
@@ -531,25 +579,25 @@ function changeArmatureConnection(_armatureName, _data){
 	if(errorDOM()){
 		return "";
 	}
-	var _armature = library.items[library.findItemIndex(_armatureName)];
-	if(!_armature){
+	var _item = library.items[library.findItemIndex(_armatureName)];
+	if(!_item){
 		trace(ALERT, "未找到 " + _armatureName + " 元件，请确认保持 FLA 文件同步！");
 		return "";
 	}
 	_data = XML(_data).toXMLString();
 	_data = replaceString(_data, "&lt;", "<");
 	_data = replaceString(_data, "&gt;", ">");
-	setArmatureConnection(_armature, _data);
+	setArmatureConnection(_item, _data);
 }
 
 function changeMovement(_armatureName, _movementName, _data){
 	if(errorDOM()){
-		return "";
+		return;
 	}
-	var _armature = library.items[library.findItemIndex(_armatureName)];
-	if(!_armature){
+	var _item = library.items[library.findItemIndex(_armatureName)];
+	if(!_item){
 		trace(ALERT, "未找到 " + _armatureName + " 元件，请确认保持 FLA 文件同步！");
-		return "";
+		return;
 	}
 	
 	_data = XML(_data).toXMLString();
@@ -558,8 +606,8 @@ function changeMovement(_armatureName, _movementName, _data){
 	_data = XML(_data);
 	
 	var _animationXML;
-	if(_armature.hasData(ANIMATION_DATA)){
-		_animationXML = XML(_armature.getData(ANIMATION_DATA));
+	if(_item.hasData(ANIMATION_DATA)){
+		_animationXML = XML(_item.getData(ANIMATION_DATA));
 	}else{
 		_animationXML = <{ANIMATION}/>;
 	}
@@ -570,21 +618,20 @@ function changeMovement(_armatureName, _movementName, _data){
 		_animationXML.appendChild(_data);
 	}
 	delete _data[BONE].*;
-	_armature.addData(ANIMATION_DATA, STRING, _animationXML.toXMLString());
+	_item.addData(ANIMATION_DATA, STRING, _animationXML.toXMLString());
 }
 
-
 //获取骨架关联数据
-function getArmatureConnection(_armature){
-	if(_armature.hasData(ARMATURE_DATA)){
-		return _armature.getData(ARMATURE_DATA);
+function getArmatureConnection(_item){
+	if(_item.hasData(ARMATURE_DATA)){
+		return _item.getData(ARMATURE_DATA);
 	}
 	return null;
 }
 
 //写入骨架关联数据
-function setArmatureConnection(_armature, _data){
-	_armature.addData(ARMATURE_DATA, STRING, _data);
+function setArmatureConnection(_item, _data){
+	_item.addData(ARMATURE_DATA, STRING, _data);
 }
 
 //是否复合 armature 结构，如果是返回 mainLayer 和 boneLayers
@@ -674,8 +721,6 @@ function getBoneFromLayers(layers, _boneName, _frameIndex){
 
 //过滤符合骨骼的元素
 function getBoneSymbol(_elements){
-	var _symbolsNamed = [];
-	var _elementUnnamed;
 	for each(var _element in _elements){
 		if(_element.symbolType == MOVIE_CLIP || _element.symbolType == GRAPHIC){
 			return _element;
@@ -697,10 +742,10 @@ function filterKeyFrames(_frames){
 }
 
 //转换父坐标系
-function transfromParentPoint(_point, _bone, _parent){
-	var _dX = _bone.x - _parent.x;
-	var _dY = _bone.y - _parent.y;
-	var _r = Math.atan2(_dY, _dX) - _parent.skewY * Math.PI / 180;
+function transfromParentPoint(_point, _boneInstance, _parentInstance){
+	var _dX = _boneInstance.x - _parentInstance.x;
+	var _dY = _boneInstance.y - _parentInstance.y;
+	var _r = Math.atan2(_dY, _dX) - _parentInstance.skewY * Math.PI / 180;
 	var _len = Math.sqrt(_dX * _dX + _dY * _dY);
 	_point.x = _len * Math.cos(_r);
 	_point.y = _len * Math.sin(_r);
@@ -770,141 +815,49 @@ function addTextureToSWFItem(_itemName, _index){
 	_timeline.layers[0].frames[_index].name = _itemName;
 }
 
-function packTexturesCustom(_xmlOrBoolean){
-	trace("自定义排序");
-}
-
-function packTextures(_widthMax, _interval, _verticalSide, _textureAtlasXML){
+function packTextures(_textureAtlasXML){
 	if(errorDOM()){
 		return;
 	}
+	
 	if(!library.itemExists(TEXTURE_SWF_ITEM)){
 		return;
 	}
-	if(_textureAtlasXML){
-		_textureAtlasXML = XML(_textureAtlasXML).toXMLString();
-		_textureAtlasXML = replaceString(_textureAtlasXML, "&lt;", "<");
-		_textureAtlasXML = replaceString(_textureAtlasXML, "&gt;", ">");
-		_textureAtlasXML = XML(_textureAtlasXML);
-	}
+	_textureAtlasXML = XML(_textureAtlasXML).toXMLString();
+	_textureAtlasXML = replaceString(_textureAtlasXML, "&lt;", "<");
+	_textureAtlasXML = replaceString(_textureAtlasXML, "&gt;", ">");
+	_textureAtlasXML = XML(_textureAtlasXML);
+	
+	var _subTextureXMLList = _textureAtlasXML[SUB_TEXTURE];
 	
 	var _textureItem = library.items[library.findItemIndex(TEXTURE_SWF_ITEM)];
-	var _timeline = dom.getTimeline();
+	var _timeline = _textureItem.timeline;
 	_timeline.currentFrame = 0;
-	var _textureList = [];
 	var _name;
-	//var _item;
+	var _textureXML;
 	for each(var _texture in _textureItem.timeline.layers[0].frames[0].elements){
 		if(_texture.symbolType == MOVIE_CLIP || _texture.symbolType == GRAPHIC){
-			//_item = _texture.libraryItem;
-			if(_texture.scaleX != 1){
-				_texture.scaleX = 1;
-			}
-			if(_texture.scaleY != 1){
-				_texture.scaleY = 1;
-			}
-			if(_texture.skewX != 0){
-				_texture.skewX = 0;
-			}
-			if(_texture.skewY != 0){
-				_texture.skewY = 0;
-			}
-			_textureList.push(_texture);
-		}
-	}
-	
-	if (_textureList.length == 0) {
-		return;
-	}
-	
-	_interval = _interval || 0;
-	//贴图按照大小排序
-	_textureList.sort(sortTextureList);
-	
-	_widthMax = getNearest2N(Math.max(_textureList[0].width, _widthMax));
-	
-	//预置一个较高的高度
-	var _heightMax = 40960;
-	
-	var _remainRectList = [createRectangle(0, 0, _widthMax, _heightMax)];
-	
-	var _isFit;
-	var _width;
-	var _height;
-	var _pivotX;
-	var _pivotY;
-	
-	var _rect;
-	var _rectID;
-	var _rectPrev;
-	var _rectNext;
-	var _step = 0;
-	var _subTexture;
-	do {
-		//寻找最高的空白区域
-		_rect = getHighestRect(_remainRectList);
-		_rectID = _remainRectList.indexOf(_rect);
-		_isFit = false;
-		for(var _iT in _textureList) {
-			//逐个比较贴图对象是否适合该区域
-			_texture = _textureList[_iT];
-			_width = Math.ceil(_texture.width) + _interval;
-			_height = Math.ceil(_texture.height) + _interval;
-			if (_rect.width >= _width && _rect.height >= _height) {
-				//考虑竖直贴图的合理摆放
-				if (_verticalSide?(_texture.height > _texture.width * 4?(_rectID > 0?(_rect.height - _height >= _remainRectList[_rectID - 1].height):true):true):true){
-					_isFit = true;
-					break;
+			_textureXML = _subTextureXMLList.(@name == _texture.libraryItem.name)[0];
+			if(_textureXML){
+				if(_texture.scaleX != 1){
+					_texture.scaleX = 1;
 				}
+				if(_texture.scaleY != 1){
+					_texture.scaleY = 1;
+				}
+				if(_texture.skewX != 0){
+					_texture.skewX = 0;
+				}
+				if(_texture.skewY != 0){
+					_texture.skewY = 0;
+				}
+				_texture.x += Number(_textureXML[AT + A_X]) - _texture.left;
+				_texture.y += Number(_textureXML[AT + A_Y]) - _texture.top;
 			}
 		}
-		if(_isFit){
-			//如果合适，放置贴图，并将矩形区域再次分区
-			_pivotX = _texture.x - _texture.left;
-			_pivotY = _texture.y - _texture.top;
-			_texture.x = _rect.x + _pivotX;
-			_texture.y = _rect.y + _pivotY;
-			if(_textureAtlasXML){
-				_subTexture = createTextureXML(_textureAtlasXML, _texture.libraryItem.name);
-				_subTexture[AT + A_X] = _rect.x;
-				_subTexture[AT + A_Y] = _rect.y;
-				_subTexture[AT + A_WIDTH] = _width - _interval + 1;
-				_subTexture[AT + A_HEIGHT] = _height - _interval + 1;
-				_subTexture[AT + A_PIVOT_X] = formatNumber(_pivotX);
-				_subTexture[AT + A_PIVOT_Y] = formatNumber(_pivotY);
-			}
-			_textureList.splice(Number(_iT), 1);
-			_remainRectList.splice(_rectID + 1, 0, createRectangle(_rect.x + _width, _rect.y, _rect.width - _width, _rect.height));
-			_rect.y += _height;
-			_rect.width = _width;
-			_rect.height -= _height;
-		}else{
-			//不合适，则放弃这个矩形区域，把这个区域将与他相邻的矩形区域合并（与较高的一边合并）
-			if(_rectID == 0){
-				_rectNext = _remainRectList[_rectID + 1];
-			}else if(_rectID == _remainRectList.length - 1){
-				_rectNext = _remainRectList[_rectID - 1];
-			}else{
-				_rectPrev = _remainRectList[_rectID - 1];
-				_rectNext = _remainRectList[_rectID + 1];
-				_rectNext = _rectPrev.height <= _rectNext.height?_rectNext:_rectPrev;
-			}
-			if(_rect.x < _rectNext.x){
-				_rectNext.x = _rect.x;
-			}
-			_rectNext.width = _rect.width + _rectNext.width;
-			_remainRectList.splice(_rectID, 1);
-		}
-		_step ++;
-	}while (_textureList.length > 0);
-	if(_textureAtlasXML){
-		_heightMax = getNearest2N(_heightMax - getLowestRect(_remainRectList).height);
-		_textureAtlasXML[AT + A_WIDTH] = _widthMax;
-		_textureAtlasXML[AT + A_HEIGHT] = _heightMax;
 	}
 	dom.selectAll();
 	dom.selectNone();
-	return _textureAtlasXML;
 }
 
 function exportSWF(){
@@ -920,59 +873,11 @@ function exportSWF(){
 	}else{
 		return "";
 	}
-	
 	_folderURL = _folderURL + "WindowSWF" + _pathDelimiter + SKELETON_PANEL;
-	
 	if(!FLfile.exists(_folderURL)){
 		FLfile.createFolder(_folderURL);
 	}
-	
 	var _swfURL = _folderURL + _pathDelimiter + TEXTURE_SWF;
 	library.items[library.findItemIndex(TEXTURE_SWF_ITEM)].exportSWF(_swfURL);
 	return _swfURL;
-}
-		
-function sortTextureList(_instance1, _instance2){
-	var _v1=_instance1.width + _instance1.height;
-	var _v2=_instance2.width + _instance2.height;
-	if (_v1 == _v2) {
-		return _instance1.width > _instance2.width?-1:1;
-	}
-	return _v1 > _v2?-1:1;
-}
-
-function getNearest2N(_n){
-	return _n & _n - 1?1 << _n.toString(2).length:_n;
-}
-
-function createRectangle(_x, _y, _width, _height){
-	return {x:_x||0, y:_y||0, width:_width||0, height:_height||0};
-}
-
-function getInstanceRect(_instance){
-	return createRectangle(_instance.x - _instance.left, _instance.y - _instance.top, _instance.width, _instance.height);
-}
-
-function getHighestRect(_rectList){
-	var _height = 0;
-	var _rectHighest;
-	for each(var _rect in _rectList) {
-		if (_rect.height > _height) {
-			_height = _rect.height;
-			_rectHighest = _rect;
-		}
-	}
-	return _rectHighest;
-}
-	
-function getLowestRect(_rectList){
-	var _height = 40960;
-	var _rectLowest;
-	for each(var _rect in _rectList) {
-		if (_rect.height < _height) {
-			_height = _rect.height;
-			_rectLowest = _rect;
-		}
-	}
-	return _rectLowest;
 }

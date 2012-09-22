@@ -9,10 +9,11 @@
 		<s:HorizontalLayout/>
 	</s:layout>
 	<fx:Declarations>
-		<fx:XML id="aboutXML" source="about.xml"/>
 	</fx:Declarations>
 	<fx:Script>
 		<![CDATA[
+			import utils.FLAData;
+			import utils.JSFL;
 			import mx.controls.Alert;
 			
 			[Bindable]
@@ -41,6 +42,9 @@
 				switch(event.target.selectedChild){
 					case navTexture:
 						if(flaData.textureDisplay){
+							if(textureContainer.numChildren > 0){
+								textureContainer.removeChildAt(0);
+							}
 							textureContainer.addChild(flaData.textureDisplay);
 							textureContainerGroup.width = flaData.textureDisplay.width;
 							textureContainerGroup.height = flaData.textureDisplay.height;
@@ -55,11 +59,11 @@
 		]]>
 	</fx:Script>
 	<mx:TabNavigator width="100%" height="100%" paddingTop="0" change="navIndexChangeHandler(event)">
-		<s:NavigatorContent width="100%" height="100%" label="Skeleton Panel">
+		<s:NavigatorContent width="100%" height="100%" label="Skeleton">
 			<local:SkeletonPanel/>
 		</s:NavigatorContent>
 		<s:NavigatorContent width="100%" height="100%" label="XML">
-			<s:TextArea left="0" right="0" top="0" bottom="0" text="{flaData.xml}"/>
+			<s:TextArea left="0" right="0" top="0" bottom="0" editable="false" text="{flaData.xml}"/>
 		</s:NavigatorContent>
 		<s:NavigatorContent id="navTexture" width="100%" height="100%" label="Texture">
 			<s:Scroller width="100%" height="100%">
@@ -70,14 +74,7 @@
 				</s:Group>
 			</s:Scroller>
 		</s:NavigatorContent>
-		<s:NavigatorContent width="100%" height="100%" label="JSFL">
-			<s:TextArea left="0" right="0" top="0" bottom="0" text="@{JSFL.skeletonJSFL}"/>
-		</s:NavigatorContent>
 		<s:NavigatorContent width="100%" height="100%" label="Tools">
-		</s:NavigatorContent>
-		<s:NavigatorContent width="100%" height="100%" label="About">
-			<mx:TextArea left="0" right="0" top="0" bottom="0" editable="false" selectable="false" condenseWhite="true"
-						 htmlText="{aboutXML}"/>
 		</s:NavigatorContent>
 	</mx:TabNavigator>
 </s:Application>

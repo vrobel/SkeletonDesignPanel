@@ -1,5 +1,5 @@
 <?xml version="1.0" encoding="UTF-8"?>
-<macromedia-extension name="SkeletonSWFPanel" version="1.0.0" type="command">
+<macromedia-extension name="SkeletonSWFPanel" version="1.4.0 dev" type="command">
 	<author name="akdcl"/>
 	<products>
 		<product name="Flash" version="11" primary="true"/>
