@@ -7,10 +7,8 @@ package utils
 	[Bindable]
 	public class JSFL
 	{
-		public static const JSFL_URL:String = "SkeletonSWFPanel/skeleton.jsfl";
-		public static var skeletonJSFL:String;
-		
-		private static const JSFL_XML:XML = <root></root>;
+		public static const COMMON_URL:String = "SkeletonSWFPanel/Common.jsfl";
+		public static const JSFL_URL:String = "SkeletonSWFPanel/Skeleton.jsfl";
 		
 		public static function get isAvailable():Boolean{
 			try{
@@ -21,17 +19,17 @@ package utils
 			return false;
 		}
 		
-		private static function runJSFL(_jsfl:String, _code:String):String{
-			var _result:String;
+		private static function xmlToString(_xml:XML):String{
+			return <a a={_xml.toXMLString()}/>.@a.toXMLString();
+		}
+		
+		public static function runJSFL(_code:String):String{
+			var _result:*;
 			try {
-				_result = MMExecute(_jsfl + _code);
+				_result = MMExecute(_code);
 			}catch(_e:Error){
 			}
 			return _result;
-		}
-		
-		private static function xmlToString(_xml:XML):String{
-			return <a a={_xml.toXMLString()}/>.@a.toXMLString();
 		}
 		
 		public static function trace(...arg):String{
@@ -46,42 +44,48 @@ package utils
 			return _str;
 		}
 		
-		public static function getArmatureList(_isSelected:Boolean = false):Array{
-			var _code:String = "String(getArmatureList(" + (_isSelected?"library.getSelectedItems()":"library.items") + "));";
-			var _str:String = runJSFL(skeletonJSFL, _code);
-			if(_str){
-				var _arr:Array = _str.split(",");
+		public static function getArmatureList(_isSelected:Boolean):int{
+			var _code:String = _isSelected?"Skeleton.getArmatureList(fl.getDocumentDOM().library.getSelectedItems());":"Skeleton.getArmatureList(fl.getDocumentDOM().library.items);";
+			return int(runJSFL(_code));
+		}
+		
+		public static function generateArmature():*{
+			var _result:String = runJSFL("Skeleton.generateArmature();");
+			if(_result == "true"){
+				return true;
+			}else if(_result == "false"){
+				return false;
 			}
-			return _arr;
+			return XML(_result);
 		}
 		
-		public static function generateArmature(_name:String):XML{
-			return XML(runJSFL(skeletonJSFL, "generateArmature('" + _name + "').toXMLString();"));
+		public static function clearTextureSWFItem():void{
+			runJSFL("Skeleton.clearTextureSWFItem()");
 		}
 		
-		public static function clearTextureSWFItem(_length:uint):void{
-			runJSFL(skeletonJSFL, "clearTextureSWFItem(" + _length + ");");
-		}
-		
-		public static function addTextureToSWFItem(_itemName:String, _index:uint):void{
-			runJSFL(skeletonJSFL, "addTextureToSWFItem('" + _itemName + "', " + _index + ");");
+		public static function addTextureToSWFItem():XML{
+			var _result:String = runJSFL("Skeleton.addTextureToSWFItem()");
+			if(_result == "false"){
+				return null;
+			}
+			return XML(_result);
 		}
 		
 		public static function packTextures(_textureAtlasXML:XML = null):void{
 			var _str:String = xmlToString(_textureAtlasXML);
-			runJSFL(skeletonJSFL, "packTextures('" + _str + "');");
+			runJSFL("Skeleton.packTextures('" + _str + "');");
 		}
 		
 		public static function exportSWF():String{
-			return runJSFL(skeletonJSFL, "exportSWF();");
+			return runJSFL("Skeleton.exportSWF();");
 		}
 		
 		public static function changeArmatureConnection(_armatureName:String, _armatureXML:XML):void{
-			runJSFL(skeletonJSFL, "changeArmatureConnection('" + _armatureName + "','" + xmlToString(_armatureXML) + "');");
+			runJSFL("Skeleton.changeArmatureConnection('" + _armatureName + "','" + xmlToString(_armatureXML) + "');");
 		}
 		
 		public static function changeMovement(_armatureName:String, _movementName:String, _movementXML:XML):void{
-			runJSFL(skeletonJSFL, "changeMovement('" + _armatureName + "','" + _movementName + "','" + xmlToString(_movementXML) + "');");
+			runJSFL("Skeleton.changeMovement('" + _armatureName + "','" + _movementName + "','" + xmlToString(_movementXML) + "');");
 		}
 	}
 }

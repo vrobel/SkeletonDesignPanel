@@ -32,6 +32,8 @@ package utils{
 	import flash.utils.clearTimeout;
 	import flash.utils.setTimeout;
 	
+	import makeswfs.make;
+	
 	import mx.collections.ArrayCollection;
 	import mx.collections.XMLListCollection;
 	import mx.controls.Alert;
@@ -186,9 +188,9 @@ package utils{
 			
 			urlLoader = new URLLoader();
 			if(JSFL.isAvailable){
-				urlLoader.addEventListener(flash.events.Event.COMPLETE, onJSFLLoadedHandler);
-				urlLoader.addEventListener(IOErrorEvent.IO_ERROR, onJSFLLoadedHandler);
-				urlLoader.load(new URLRequest(JSFL.JSFL_URL));
+				urlLoader.addEventListener(flash.events.Event.COMPLETE, onJSFLHandler);
+				urlLoader.addEventListener(IOErrorEvent.IO_ERROR, onJSFLHandler);
+				urlLoader.load(new URLRequest(JSFL.COMMON_URL));
 			}
 			
 			container = new Sprite();
@@ -246,14 +248,22 @@ package utils{
 			}
 		}
 		
-		private function onJSFLLoadedHandler(_e:flash.events.Event):void{
-			urlLoader.removeEventListener(flash.events.Event.COMPLETE, onJSFLLoadedHandler);
-			urlLoader.removeEventListener(IOErrorEvent.IO_ERROR, onJSFLLoadedHandler);
+		private var isJSFLComplete:Boolean;
+		private function onJSFLHandler(_e:flash.events.Event):void{
 			switch(_e.type){
 				case flash.events.Event.COMPLETE:
-					JSFL.skeletonJSFL = _e.target.data;
+					JSFL.runJSFL(_e.target.data);
+					if(!isJSFLComplete){
+						isJSFLComplete = true;
+						urlLoader.load(new URLRequest(JSFL.JSFL_URL));
+					}else{
+						urlLoader.removeEventListener(flash.events.Event.COMPLETE, onJSFLHandler);
+						urlLoader.removeEventListener(IOErrorEvent.IO_ERROR, onJSFLHandler);
+					}
 					break;
 				case IOErrorEvent.IO_ERROR:
+					urlLoader.removeEventListener(flash.events.Event.COMPLETE, onJSFLHandler);
+					urlLoader.removeEventListener(IOErrorEvent.IO_ERROR, onJSFLHandler);
 					break;
 			}
 		}
@@ -262,12 +272,12 @@ package utils{
 			switch(dataImportID){
 				case 0:
 					if(JSFL.isAvailable){
-						generateFLAXML(JSFL.getArmatureList());
+						getArmatureList(false);
 					}
 					break;
 				case 1:
 					if(JSFL.isAvailable){
-						generateFLAXML(JSFL.getArmatureList(true));
+						getArmatureList(true);
 					}
 					break;
 				case 2:
@@ -386,46 +396,39 @@ package utils{
 		}
 		
 		private var flaXML:XML;
-		private var tempArr:Array;
 		private var tempTextureAtlasXML:XML;
-		private var tempSubTextureXMLList:XMLList;
-		private var tempIndex:int;
 		
-		private function generateFLAXML(_arr:Array):void{
-			tempArr = _arr;
-			if(!tempArr || tempArr.length == 0){
-				return;
-			}
-			alert = Alert.show("Waitting...");
+		private function getArmatureList(_isSelected:Boolean):void{
 			flaXML = null;
-			container.addEventListener(flash.events.Event.ENTER_FRAME, onGenerateFLAXMLHandler);
+			var _length:uint = JSFL.getArmatureList(_isSelected);
+			if(_length > 0){
+				alert = Alert.show("Waitting...");
+				container.addEventListener(flash.events.Event.ENTER_FRAME, onGenerateFLAXMLHandler);
+			}
 		}
 		
 		private function onGenerateFLAXMLHandler(_e:flash.events.Event):void{
-			if(tempArr.length == 0){
+			var _result:* = JSFL.generateArmature();
+			if(_result === false){
+				tempTextureAtlasXML = <{ConstValues.TEXTURE_ATLAS} {ConstValues.A_NAME} = {flaXML.attribute(ConstValues.A_NAME)}/>;
+				flaXML.appendChild(tempTextureAtlasXML);
+				JSFL.clearTextureSWFItem();
 				container.removeEventListener(flash.events.Event.ENTER_FRAME, onGenerateFLAXMLHandler);
-				generateTextureSWF();
-				return;
+				container.addEventListener(flash.events.Event.ENTER_FRAME, onGenerateTextureSWFHandler);
+			}else if(_result !== true){
+				if(flaXML){
+					mixSkeletonXML(flaXML, _result as XML);
+				}else{
+					flaXML = _result as XML;
+				}
 			}
-			var _name:String = tempArr.pop();
-			var _xml:XML = JSFL.generateArmature(_name);
-			if(flaXML){
-				mixSkeletonXML(flaXML, _xml);
-			}else{
-				flaXML = _xml;
-			}
-		}
-		
-		private function generateTextureSWF():void{
-			tempTextureAtlasXML = flaXML.elements(ConstValues.TEXTURE_ATLAS)[0];
-			tempSubTextureXMLList = tempTextureAtlasXML.elements(ConstValues.SUB_TEXTURE);
-			tempIndex = tempSubTextureXMLList.length();
-			JSFL.clearTextureSWFItem(tempIndex);
-			container.addEventListener(flash.events.Event.ENTER_FRAME, onGenerateTextureSWFHandler);
 		}
 		
 		private function onGenerateTextureSWFHandler(_e:flash.events.Event):void{
-			if(tempIndex <= 0){
+			var _subTextureXML:XML = JSFL.addTextureToSWFItem();
+			if(_subTextureXML){
+				tempTextureAtlasXML.appendChild(_subTextureXML);
+			}else{
 				container.removeEventListener(flash.events.Event.ENTER_FRAME, onGenerateTextureSWFHandler);
 				TextureUtil.packTextures(uint(textureMaxWidthAC.getItemAt(textureMaxWidthID)), textureInterval, false, tempTextureAtlasXML);
 				JSFL.packTextures(tempTextureAtlasXML);
@@ -434,11 +437,7 @@ package utils{
 					PopUpManager.removePopUp(alert);
 					alert = null;
 				}
-			}else{
-				var _textureXML:XML = tempSubTextureXMLList[tempIndex - 1];
-				JSFL.addTextureToSWFItem(_textureXML.attribute(ConstValues.A_NAME), tempIndex);
 			}
-			tempIndex --;
 		}
 		
 		private function exportAndLoadSWF():void{
@@ -452,7 +451,7 @@ package utils{
 			isTextureChanged = false;
 			isSWFSource = false;
 			urlLoader.removeEventListener(flash.events.Event.COMPLETE, onURLLoaderCompleteHandler);
-			updateArmatures(_e.target.data, flaXML);
+			updateArmatures(make(_e.target.data, tempTextureAtlasXML), flaXML);
 			flaXML = null;
 		}
 		
@@ -687,17 +686,6 @@ package utils{
 					delete _xmlList1[_node1.childIndex()];
 				}
 				_xml1.elements(ConstValues.ANIMATIONS).appendChild(_node2);
-			}
-			
-			_xmlList1 = _xml1.elements(ConstValues.TEXTURE_ATLAS).elements(ConstValues.SUB_TEXTURE);
-			_xmlList2 = _xml2.elements(ConstValues.TEXTURE_ATLAS).elements(ConstValues.SUB_TEXTURE);
-			for each(_node2 in _xmlList2){
-				_name = _node2.attribute(ConstValues.A_NAME);
-				_node1 = _xmlList1.(attribute(ConstValues.A_NAME) == _name)[0];
-				if(_node1){
-					delete _xmlList1[_node1.childIndex()];
-				}
-				_xml1.elements(ConstValues.TEXTURE_ATLAS).appendChild(_node2);
 			}
 		}
 	}
