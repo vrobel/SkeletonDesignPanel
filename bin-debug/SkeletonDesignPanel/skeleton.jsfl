@@ -70,7 +70,7 @@ var NO_EASING = "^";
 var DELIM_CHAR = "|";
 var UNDERLINE_CHAR = "_";
 
-var SKELETON_PANEL = "SkeletonSWFPanel";
+var SKELETON_PANEL = "SkeletonDesignPanel";
 var ARMATURE_DATA = "armatureData";
 var ANIMATION_DATA = "animationData";
 
@@ -98,6 +98,52 @@ var textureLength;
 var textureIndex;
 */
 
+
+function trace(){
+	var _str = "";
+	for(var _i = 0;_i < arguments.length;_i ++){
+		if(_i!=0){
+			_str += ", ";
+		}
+		_str += arguments[_i];
+	}
+	fl.trace(_str);
+}
+
+function formatNumber(_num, _retain){
+	_retain = _retain || 100;
+	return Math.round(_num * _retain) / 100;
+}
+
+replaceString = function(_strOld, _str, _rep){
+	if(_strOld){
+		return _strOld.split(_str).join(_rep);
+	}
+	return "";
+}
+
+//是否为空图层
+function isBlankLayer(_layer){
+	for each(var _frame in filterKeyFrames(_layer.frames)){
+		if(_frame.elements.length){
+			return false;
+		}
+	}
+	return true;
+}
+
+//过滤关键帧
+function filterKeyFrames(_frames){
+	var _framesCopy = [];
+	for each(var _frame in _frames){
+		if(_framesCopy.indexOf(_frame) >= 0){
+			continue;
+		}
+		_framesCopy.push(_frame);
+	}
+	return _framesCopy;
+}
+
 function errorDOM(){
 	if(!currentDom){
 		alert("没有打开的 FLA 档案！");
@@ -121,7 +167,7 @@ function formatName(_obj){
 	if(!_name){
 		_obj.name = _name = "unnamed" + Math.round(Math.random()*10000);
 	}else if(_name.indexOf(DELIM_CHAR) >= 0){
-		_obj.name = _name = Common.replaceString(_name, DELIM_CHAR, "");
+		_obj.name = _name = replaceString(_name, DELIM_CHAR, "");
 	}
 	return _name;
 }
@@ -156,7 +202,7 @@ function isSpecialFrame(_frame, _framePrefix, _returnName){
 				return _str.substr(1);
 			}
 		}
-		Common.trace("错误的特殊关键帧命名！", _frame.name);
+		trace("错误的特殊关键帧命名！", _frame.name);
 		return false;
 	}
 	return _b;
@@ -169,7 +215,7 @@ function isMainFrame(_frame){
 
 //是否为主标签层
 function isMainLayer(_layer){
-	for each(var _frame in Common.filterKeyFrames(_layer.frames)){
+	for each(var _frame in filterKeyFrames(_layer.frames)){
 		if(isMainFrame(_frame)){
 			return true;
 		}
@@ -190,7 +236,7 @@ function isArmatureItem(_item){
 			default:
 				if(isMainLayer(_layer)){
 					_mainLayer = _layer;
-				}else if(!Common.isBlankLayer(_layer)){
+				}else if(!isBlankLayer(_layer)){
 					_layersFiltered.unshift(_layer);
 				}
 				break;
@@ -245,7 +291,7 @@ function getMovementXML(_movementName, _item, _duration){
 		if(_movementXML){
 			_xml[AT + A_DURATION_TWEEN] = _movementXML[AT + A_DURATION_TWEEN];
 			_xml[AT + A_LOOP] = _movementXML[AT + A_LOOP];
-			_xml[AT + A_TWEEN_EASING] = _movementXML[AT + A_TWEEN_EASING];
+			_xml[AT + A_TWEEN_EASING] = _movementXML[AT + A_TWEEN_EASING].length()?_movementXML[AT + A_TWEEN_EASING]:NaN;
 		}else{
 			_xml[AT + A_DURATION_TWEEN] = _duration > 2?_duration:10;
 			if(_duration == 2){
@@ -279,6 +325,10 @@ function getBoneXML(_name, _z){
 		if(_connectionXML && _connectionXML[AT + A_PARENT][0]){
 			_xml[AT + A_PARENT] = _connectionXML[AT + A_PARENT];
 		}
+		/*_xml[AT + A_X] = formatNumber(_point.x);
+		_xml[AT + A_Y] = formatNumber(_point.y);
+		_xml[AT + A_SKEW_X] = formatNumber(_point.skewX);
+		_xml[AT + A_SKEW_Y] = formatNumber(_point.skewY);*/
 		_xml[AT + A_Z] = _z;
 		armatureXML.appendChild(_xml);
 	}
@@ -319,7 +369,7 @@ function generateMovement(_item, _mainFrame, _layers){
 		_boneName = formatName(_layer);
 		_boneZDic[_boneName] = [];
 		_movementBoneXML = null;
-		for each(var _frame in Common.filterKeyFrames(_layer.frames.slice(_start, _start + _duration))){
+		for each(var _frame in filterKeyFrames(_layer.frames.slice(_start, _start + _duration))){
 			if(_frame.startFrame < _start){
 				_frameStart = 0;
 				_frameDuration = _frame.duration - _start + _frame.startFrame;
@@ -330,13 +380,6 @@ function generateMovement(_item, _mainFrame, _layers){
 				_frameStart = _frame.startFrame - _start;
 				_frameDuration= _frame.duration;
 			}
-			
-			//switch(_frame.tweenType){
-				//case "motion":
-					//break;
-				//case "motion object":
-					//break;
-			//}
 			_symbol = getBoneSymbol(_frame.elements);
 			if(!_symbol){
 				continue;
@@ -362,6 +405,10 @@ function generateMovement(_item, _mainFrame, _layers){
 				_boneList[_i] = _z;
 			}
 			
+			if(_frame.tweenType == "motion object"){
+				
+				break;
+			}
 			_frameXML = generateFrame(_frame, _boneName, _symbol, _z, _layers, Math.max(_frame.startFrame, _start));
 			_frameXML[AT + A_START] = _frameStart;
 			_frameXML[AT + A_DURATION] = _frameDuration;
@@ -453,21 +500,21 @@ function generateFrame(_frame, _boneName, _symbol, _z, _layers, _start){
 	}
 	
 	if(!_boneXML[AT + A_X][0]){
-		_boneXML[AT + A_X] = Common.formatNumber(helpPoint.x);
-		_boneXML[AT + A_Y] = Common.formatNumber(helpPoint.y);
-		_boneXML[AT + A_SKEW_X] = Common.formatNumber(helpPoint.skewX);
-		_boneXML[AT + A_SKEW_Y] = Common.formatNumber(helpPoint.skewY);
+		_boneXML[AT + A_X] = formatNumber(helpPoint.x);
+		_boneXML[AT + A_Y] = formatNumber(helpPoint.y);
+		_boneXML[AT + A_SKEW_X] = formatNumber(helpPoint.skewX);
+		_boneXML[AT + A_SKEW_Y] = formatNumber(helpPoint.skewY);
 	}
 	/*if(_parentName && !_parentSymbol){
 		//预留切换父骨骼
 	}*/
 	//x、y、skewX、skewY为相对数据
-	_frameXML[AT + A_X] = Common.formatNumber(helpPoint.x - Number(_boneXML[AT + A_X]));
-	_frameXML[AT + A_Y] = Common.formatNumber(helpPoint.y - Number(_boneXML[AT + A_Y]));
-	_frameXML[AT + A_SKEW_X] = Common.formatNumber(helpPoint.skewX - Number(_boneXML[AT + A_SKEW_X]));
-	_frameXML[AT + A_SKEW_Y] = Common.formatNumber(helpPoint.skewY - Number(_boneXML[AT + A_SKEW_Y]));
-	_frameXML[AT + A_SCALE_X] = Common.formatNumber(_symbol.scaleX);
-	_frameXML[AT + A_SCALE_Y] = Common.formatNumber(_symbol.scaleY);
+	_frameXML[AT + A_X] = formatNumber(helpPoint.x - Number(_boneXML[AT + A_X]));
+	_frameXML[AT + A_Y] = formatNumber(helpPoint.y - Number(_boneXML[AT + A_Y]));
+	_frameXML[AT + A_SKEW_X] = formatNumber(helpPoint.skewX - Number(_boneXML[AT + A_SKEW_X]));
+	_frameXML[AT + A_SKEW_Y] = formatNumber(helpPoint.skewY - Number(_boneXML[AT + A_SKEW_Y]));
+	_frameXML[AT + A_SCALE_X] = formatNumber(_symbol.scaleX);
+	_frameXML[AT + A_SCALE_Y] = formatNumber(_symbol.scaleY);
 	_frameXML[AT + A_Z] = _z;
 	//临时数据
 	_frameXML[AT + A_LOCAL_SKEW_Y] = _symbol.skewY;
@@ -495,7 +542,7 @@ function generateFrame(_frame, _boneName, _symbol, _z, _layers, _start){
 		//带有"^"标签的关键帧，将不会被补间
 		_frameXML[AT + A_TWEEN_EASING] = NaN;
 	}else if(_frame.tweenType == "motion"){
-		_frameXML[AT + A_TWEEN_EASING] = Common.formatNumber(_frame.tweenEasing * 0.01);
+		_frameXML[AT + A_TWEEN_EASING] = formatNumber(_frame.tweenEasing * 0.01);
 		var _tweenRotate = NaN;
 		switch(_frame.motionTweenRotate){
 			case "clockwise":
@@ -567,7 +614,6 @@ Skeleton.getArmatureList = function(_items){
 			importItems.push(_item);
 		}
 	}
-	Common.trace("找到 " + importItems.length + " 个符合骨架结构的元件！");
 	return importItems.length;
 }
 
@@ -597,7 +643,6 @@ Skeleton.generateArmature = function(_item){
 	if(armaturesXML[ARMATURE].(@name == _armatureName)[0]){
 		return true;
 	}
-	Common.trace("解析 " + _armatureName);
 	
 	var _layersFiltered = isArmatureItem(_item);
 	var _mainLayer = _layersFiltered.shift();
@@ -612,7 +657,7 @@ Skeleton.generateArmature = function(_item){
 	
 	armatureConnectionXML = _item.hasData(ARMATURE_DATA)?XML(_item.getData(ARMATURE_DATA)):armatureXML;
 	
-	var _keyFrames = Common.filterKeyFrames(_mainLayer.frames);
+	var _keyFrames = filterKeyFrames(_mainLayer.frames);
 	var _length = _keyFrames.length;
 	var _nameDic = {};
 	
@@ -683,8 +728,8 @@ Skeleton.addTextureToSWFItem = function(){
 		_symbol.symbolType = MOVIE_CLIP;
 	}
 	var _subTextureXML = <{SUB_TEXTURE} {A_NAME} = {_name}/>;
-	_subTextureXML[AT + A_PIVOT_X] = Common.formatNumber(_symbol.x - _symbol.left);
-	_subTextureXML[AT + A_PIVOT_Y] = Common.formatNumber(_symbol.y - _symbol.top);
+	_subTextureXML[AT + A_PIVOT_X] = formatNumber(_symbol.x - _symbol.left);
+	_subTextureXML[AT + A_PIVOT_Y] = formatNumber(_symbol.y - _symbol.top);
 	_subTextureXML[AT + A_WIDTH] = Math.ceil(_symbol.width);
 	_subTextureXML[AT + A_HEIGHT] = Math.ceil(_symbol.height);
 	
@@ -701,8 +746,8 @@ Skeleton.packTextures = function(_textureAtlasXML){
 		return;
 	}
 	_textureAtlasXML = XML(_textureAtlasXML).toXMLString();
-	_textureAtlasXML = Common.replaceString(_textureAtlasXML, "&lt;", "<");
-	_textureAtlasXML = Common.replaceString(_textureAtlasXML, "&gt;", ">");
+	_textureAtlasXML = replaceString(_textureAtlasXML, "&lt;", "<");
+	_textureAtlasXML = replaceString(_textureAtlasXML, "&gt;", ">");
 	_textureAtlasXML = XML(_textureAtlasXML);
 	
 	var _subTextureXMLList = _textureAtlasXML[SUB_TEXTURE];
@@ -768,13 +813,12 @@ Skeleton.changeArmatureConnection = function(_armatureName, _data){
 	}
 	var _item = currentLibrary.items[currentLibrary.findItemIndex(_armatureName)];
 	if(!_item){
-		Common.trace("未找到 " + _armatureName + " 元件，请确认保持 FLA 文件同步！");
+		trace("未找到 " + _armatureName + " 元件，请确认保持 FLA 文件同步！");
 		return;
 	}
 	_data = XML(_data).toXMLString();
-	_data = Common.replaceString(_data, "&lt;", "<");
-	_data = Common.replaceString(_data, "&gt;", ">");
-	Common.trace(_data);
+	_data = replaceString(_data, "&lt;", "<");
+	_data = replaceString(_data, "&gt;", ">");
 	setArmatureConnection(_item, _data);
 }
 
@@ -784,13 +828,13 @@ Skeleton.changeMovement = function(_armatureName, _movementName, _data){
 	}
 	var _item = currentLibrary.items[currentLibrary.findItemIndex(_armatureName)];
 	if(!_item){
-		Common.trace("未找到 " + _armatureName + " 元件，请确认保持 FLA 文件同步！");
+		trace("未找到 " + _armatureName + " 元件，请确认保持 FLA 文件同步！");
 		return;
 	}
 	
 	_data = XML(_data).toXMLString();
-	_data = Common.replaceString(_data, "&lt;", "<");
-	_data = Common.replaceString(_data, "&gt;", ">");
+	_data = replaceString(_data, "&lt;", "<");
+	_data = replaceString(_data, "&gt;", ">");
 	_data = XML(_data);
 	
 	var _animationXML;

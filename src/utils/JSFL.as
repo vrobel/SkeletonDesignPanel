@@ -2,13 +2,49 @@ package utils
 {
 	import adobe.utils.MMExecute;
 	
+	import flash.net.URLLoader;
+	import flash.net.URLRequest;
+	import flash.events.Event;
+	import flash.events.IOErrorEvent;
+	
 	import mx.messaging.channels.StreamingAMFChannel;
 	
 	[Bindable]
 	public class JSFL
 	{
-		public static const COMMON_URL:String = "SkeletonSWFPanel/Common.jsfl";
-		public static const JSFL_URL:String = "SkeletonSWFPanel/Skeleton.jsfl";
+		private static const JSFL_URL:String = "SkeletonDesignPanel/skeleton.jsfl";
+		
+		private static var urlLoader:URLLoader = new URLLoader();
+		if(JSFL.isAvailable){
+			urlLoader.addEventListener(Event.COMPLETE, onJSFLHandler);
+			urlLoader.addEventListener(IOErrorEvent.IO_ERROR, onJSFLHandler);
+			urlLoader.load(new URLRequest (JSFL.JSFL_URL));
+		}
+		
+		private static function onJSFLHandler(_e:Event):void{
+			urlLoader.removeEventListener(Event.COMPLETE, onJSFLHandler);
+			urlLoader.removeEventListener(IOErrorEvent.IO_ERROR, onJSFLHandler);
+			switch(_e.type){
+				case IOErrorEvent.IO_ERROR:
+					break;
+				case Event.COMPLETE:
+					JSFL.runJSFL(_e.target.data);
+					break;
+			}
+		}
+		
+		private static function xmlToString(_xml:XML):String{
+			return <a a={_xml.toXMLString()}/>.@a.toXMLString();
+		}
+		
+		private static function runJSFL(_code:String):String{
+			var _result:*;
+			try {
+				_result = MMExecute(_code);
+			}catch(_e:Error){
+			}
+			return _result;
+		}
 		
 		public static function get isAvailable():Boolean{
 			try{
@@ -19,19 +55,6 @@ package utils
 			return false;
 		}
 		
-		private static function xmlToString(_xml:XML):String{
-			return <a a={_xml.toXMLString()}/>.@a.toXMLString();
-		}
-		
-		public static function runJSFL(_code:String):String{
-			var _result:*;
-			try {
-				_result = MMExecute(_code);
-			}catch(_e:Error){
-			}
-			return _result;
-		}
-		
 		public static function trace(...arg):String{
 			var _str:String = "";
 			for(var _i:uint = 0;_i < arg.length;_i ++){
@@ -40,7 +63,9 @@ package utils
 				}
 				_str += arg[_i];
 			}
-			MMExecute("fl.trace('" +_str+ "');");
+			if(isAvailable){
+				MMExecute("fl.trace('" +_str+ "');");
+			}
 			return _str;
 		}
 		

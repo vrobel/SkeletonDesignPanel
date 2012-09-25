@@ -6,7 +6,7 @@ package utils
 	
 	
 	public final class TextureUtil{
-		public static function packTextures(_widthMax:uint, _interval:uint, _verticalSide:Boolean, _textureAtlasXML:XML):void{
+		public static function packTextures(_widthMax:uint, _padding:uint, _verticalSide:Boolean, _textureAtlasXML:XML):void{
 			var _textureXMLList:XMLList = _textureAtlasXML.elements(ConstValues.SUB_TEXTURE);
 			
 			if (_textureXMLList.length() == 0) {
@@ -19,7 +19,7 @@ package utils
 			//贴图按照大小排序
 			_textureList.sort(sortTextureList);
 			
-			_widthMax = getNearest2N(Math.max(_textureList[0].width + _interval, _widthMax));
+			_widthMax = getNearest2N(Math.max(_textureList[0].width + _padding, _widthMax));
 			
 			//预置一个较高的高度
 			var _heightMax:uint = 40960;
@@ -44,8 +44,8 @@ package utils
 				for(var _iT:String in _textureList) {
 					//逐个比较贴图对象是否适合该区域
 					_textureXML = _textureList[_iT];
-					_width = int(_textureXML.attribute(ConstValues.A_WIDTH)) + _interval;
-					_height = int(_textureXML.attribute(ConstValues.A_HEIGHT)) + _interval;
+					_width = int(_textureXML.attribute(ConstValues.A_WIDTH)) + _padding;
+					_height = int(_textureXML.attribute(ConstValues.A_HEIGHT)) + _padding;
 					if (_rect.width >= _width && _rect.height >= _height) {
 						//考虑竖直贴图的合理摆放
 						if (_verticalSide?(_height > _width * 4?(_rectID > 0?(_rect.height - _height >= _remainRectList[_rectID - 1].height):true):true):true){

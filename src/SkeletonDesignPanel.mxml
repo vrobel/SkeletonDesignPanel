@@ -3,8 +3,7 @@
 			   xmlns:s="library://ns.adobe.com/flex/spark"
 			   xmlns:mx="library://ns.adobe.com/flex/mx"
 			   xmlns:local="*"
-			   addedToStage="onCreationCompleteHandler()"
-			   creationComplete="onCreationCompleteHandler()">
+			   addedToStage="onAddToStageHandler()">
 	<s:layout>
 		<s:HorizontalLayout/>
 	</s:layout>
@@ -12,42 +11,37 @@
 	</fx:Declarations>
 	<fx:Script>
 		<![CDATA[
-			import utils.FLAData;
+			import control.LoadFileDataCommand;
+			
+			import model.ImportDataProxy;
+			
 			import mx.controls.Alert;
 			
 			[Bindable]
-			private var flaData:FLAData;
-			private var urlLoader:URLLoader;
+			private var importDataProxy:ImportDataProxy;
 			
-			private function onCreationCompleteHandler():void{
-				flaData = FLAData.instance;
+			private function onAddToStageHandler():void{
+				importDataProxy = ImportDataProxy.getInstance();
 				if(loaderInfo){
 					loaderInfo.uncaughtErrorEvents.addEventListener(UncaughtErrorEvent.UNCAUGHT_ERROR, onUncaughtErrorHandler);
 					var _data:String = loaderInfo.parameters["data"];
-					if(_data && !urlLoader){
-						urlLoader = new URLLoader();
-						urlLoader.dataFormat = URLLoaderDataFormat.BINARY;
-						urlLoader.addEventListener(Event.COMPLETE, onDataCompleteHandler);
-						urlLoader.load(new URLRequest(_data));
+					if(_data){
+						LoadFileDataCommand.instance.load(_data);
 					}
 				}
-			}
-			
-			private function onDataCompleteHandler(_e:Event):void{
-				flaData.setData(_e.target.data);
 			}
 			
 			private function navIndexChangeHandler(event:Event):void{
 				switch(event.target.selectedChild){
 					case navTexture:
-						if(flaData.textureDisplay){
+						/*if(flaData.textureDisplay){
 							if(textureContainer.numChildren > 0){
 								textureContainer.removeChildAt(0);
 							}
 							textureContainer.addChild(flaData.textureDisplay);
 							textureContainerGroup.width = flaData.textureDisplay.width;
 							textureContainerGroup.height = flaData.textureDisplay.height;
-						}
+						}*/
 						break;
 				}
 			}
@@ -62,7 +56,7 @@
 			<local:SkeletonPanel/>
 		</s:NavigatorContent>
 		<s:NavigatorContent width="100%" height="100%" label="XML">
-			<s:TextArea left="0" right="0" top="0" bottom="0" editable="false" text="{flaData.xml}"/>
+			<s:TextArea left="0" right="0" top="0" bottom="0" editable="false" text="{importDataProxy.skeletonXML}"/>
 		</s:NavigatorContent>
 		<s:NavigatorContent id="navTexture" width="100%" height="100%" label="Texture">
 			<s:Scroller width="100%" height="100%">
