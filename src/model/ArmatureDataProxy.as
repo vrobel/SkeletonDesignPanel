@@ -1,10 +1,11 @@
 package model
 {
 	import akdcl.skeleton.utils.ConstValues;
-	
-	import message.MessageDispatcher;
+	import akdcl.skeleton.utils.generateBoneData;
 	
 	import flash.events.Event;
+	
+	import message.MessageDispatcher;
 	
 	import mx.collections.XMLListCollection;
 	
@@ -22,6 +23,10 @@ package model
 		private var boneXML:XML;
 		private var displaysXMLList:XMLList;
 		private var displayXML:XML;
+		
+		public function get source():XML{
+			return xml;
+		}
 		
 		public function get armatureName():String{
 			return ImportDataProxy.getElementName(xml);
@@ -64,7 +69,7 @@ package model
 			MessageDispatcher.dispatchEvent(MessageDispatcher.CHANGE_DISPLAY_DATA);
 		}
 		
-		public function changeBoneParent(_boneXMLOnTree:XML):void{
+		public function changeBoneParent(_boneXMLOnTree:XML):Boolean{
 			var _name:String = ImportDataProxy.getElementName(_boneXMLOnTree);
 			var _boneXML:XML = ImportDataProxy.getElementByName(bonesXMLList, _name);
 			var _parentXML:XML = _boneXMLOnTree.parent();
@@ -83,8 +88,15 @@ package model
 				}
 			}
 			if(_isChange){
-				JSFL.changeArmatureConnection(armatureName, xml);
+				_parentXML = ImportDataProxy.getElementByName(bonesXMLList, _parentName);
+				generateBoneData(
+					_name, 
+					_boneXML, 
+					_parentXML, 
+					ImportDataProxy.getInstance().skeletonData.getArmatureData(armatureName).getData(_name)
+				);
 			}
+			return _isChange;
 		}
 		
 		private function getBoneList():XMLList{

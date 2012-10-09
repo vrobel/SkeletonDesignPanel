@@ -45,9 +45,6 @@ var A_TWEEN_ROTATE ="twR";
 var A_IS_ARMATURE = "isArmature";
 var A_MOVEMENT = "mov";
 
-var A_LOCAL_SKEW_X = "localSkewX";
-var A_LOCAL_SKEW_Y = "localSkewY";
-
 var A_WIDTH = "width";
 var A_HEIGHT = "height";
 var A_PIVOT_X = "pX";
@@ -77,7 +74,7 @@ var ANIMATION_DATA = "animationData";
 var TEXTURE_SWF_ITEM = "textureSWFItem";
 var TEXTURE_SWF = "armatureTextureSWF.swf";
 
-var helpPoint = {x:0, y:0, skewX:0, skewY:0};
+var helpPoint = {x:0, y:0};
 
 /*
 var currentDom;
@@ -150,15 +147,6 @@ function errorDOM(){
 		return true;
 	}
 	return false;
-}
-
-function transfromParentPoint(_point, _symbol, _parentSymbol){
-	var _dX = _symbol.x - _parentSymbol.x;
-	var _dY = _symbol.y - _parentSymbol.y;
-	var _r = Math.atan2(_dY, _dX) - _parentSymbol.skewY * Math.PI / 180;
-	var _len = Math.sqrt(_dX * _dX + _dY * _dY);
-	_point.x = _len * Math.cos(_r);
-	_point.y = _len * Math.sin(_r);
 }
 
 //防止对象命名非法
@@ -317,7 +305,7 @@ function getMovementBoneXML(_movementXML, _boneName){
 	return _xml;
 }
 
-function getBoneXML(_name, _z){
+function getBoneXML(_name, _frameXML){
 	var _xml = armatureXML[BONE].(@name == _name)[0];
 	if(!_xml){
 		_xml = <{BONE} {A_NAME} = {_name}/>;
@@ -325,11 +313,13 @@ function getBoneXML(_name, _z){
 		if(_connectionXML && _connectionXML[AT + A_PARENT][0]){
 			_xml[AT + A_PARENT] = _connectionXML[AT + A_PARENT];
 		}
-		/*_xml[AT + A_X] = formatNumber(_point.x);
-		_xml[AT + A_Y] = formatNumber(_point.y);
-		_xml[AT + A_SKEW_X] = formatNumber(_point.skewX);
-		_xml[AT + A_SKEW_Y] = formatNumber(_point.skewY);*/
-		_xml[AT + A_Z] = _z;
+		_xml[AT + A_X] = _frameXML[AT + A_X];
+		_xml[AT + A_Y] = _frameXML[AT + A_Y];
+		_xml[AT + A_SKEW_X] = _frameXML[AT + A_SKEW_X];
+		_xml[AT + A_SKEW_Y] = _frameXML[AT + A_SKEW_Y];
+		_xml[AT + A_SCALE_X] = _frameXML[AT + A_SCALE_X];
+		_xml[AT + A_SCALE_Y] = _frameXML[AT + A_SCALE_Y];
+		_xml[AT + A_Z] = _frameXML[AT + A_Z];
 		armatureXML.appendChild(_xml);
 	}
 	return _xml;
@@ -447,7 +437,7 @@ function generateMovement(_item, _mainFrame, _layers){
 			//tweenRotate属性应留给补间的到点而不是起点
 			//逆时针x0或顺时针x0有时需要忽略
 			if(_prevFrameXML && _prevFrameXML[AT + A_TWEEN_ROTATE][0]){
-				var _dSkY = Number(_frameXML[AT + A_LOCAL_SKEW_Y]) - Number(_prevFrameXML[AT + A_LOCAL_SKEW_Y]);
+				var _dSkY = Number(_frameXML[AT + A_SKEW_Y]) - Number(_prevFrameXML[AT + A_SKEW_Y]);
 				if(_dSkY < -180){
 					_dSkY += 360;
 				}
@@ -474,50 +464,20 @@ function generateMovement(_item, _mainFrame, _layers){
 		}
 	}
 	delete _movementXML[BONE][FRAME][AT + A_START];
-	delete _movementXML[BONE][FRAME][AT + A_LOCAL_SKEW_Y];
 	animationXML.appendChild(_movementXML);
 }
 
-function generateFrame(_frame, _boneName, _symbol, _z, _layers, _start){
+function generateFrame(_frame, _boneName, _symbol, _z){
 	var _frameXML = <{FRAME}/>;
-	var _boneXML = getBoneXML(_boneName, _z);
-	if(_boneXML){
-		var _parentName = _boneXML[AT + A_PARENT][0];
-	}
-	
-	if(_parentName){
-		var _parentSymbol = getBoneFromLayers(_layers, _parentName, _start);
-	}
-	if (_parentSymbol) {
-		transfromParentPoint(helpPoint, _symbol, _parentSymbol);
-		helpPoint.skewX = _symbol.skewX - _parentSymbol.skewX;
-		helpPoint.skewY = _symbol.skewY - _parentSymbol.skewY;
-	}else {
-		helpPoint.x = _symbol.x;
-		helpPoint.y = _symbol.y;
-		helpPoint.skewX = _symbol.skewX;
-		helpPoint.skewY = _symbol.skewY;
-	}
-	
-	if(!_boneXML[AT + A_X][0]){
-		_boneXML[AT + A_X] = formatNumber(helpPoint.x);
-		_boneXML[AT + A_Y] = formatNumber(helpPoint.y);
-		_boneXML[AT + A_SKEW_X] = formatNumber(helpPoint.skewX);
-		_boneXML[AT + A_SKEW_Y] = formatNumber(helpPoint.skewY);
-	}
-	/*if(_parentName && !_parentSymbol){
-		//预留切换父骨骼
-	}*/
-	//x、y、skewX、skewY为相对数据
-	_frameXML[AT + A_X] = formatNumber(helpPoint.x - Number(_boneXML[AT + A_X]));
-	_frameXML[AT + A_Y] = formatNumber(helpPoint.y - Number(_boneXML[AT + A_Y]));
-	_frameXML[AT + A_SKEW_X] = formatNumber(helpPoint.skewX - Number(_boneXML[AT + A_SKEW_X]));
-	_frameXML[AT + A_SKEW_Y] = formatNumber(helpPoint.skewY - Number(_boneXML[AT + A_SKEW_Y]));
+	_frameXML[AT + A_X] = formatNumber(_symbol.x);
+	_frameXML[AT + A_Y] = formatNumber(_symbol.y);
+	_frameXML[AT + A_SKEW_X] = formatNumber(_symbol.skewX);
+	_frameXML[AT + A_SKEW_Y] = formatNumber(_symbol.skewY);
 	_frameXML[AT + A_SCALE_X] = formatNumber(_symbol.scaleX);
 	_frameXML[AT + A_SCALE_Y] = formatNumber(_symbol.scaleY);
 	_frameXML[AT + A_Z] = _z;
-	//临时数据
-	_frameXML[AT + A_LOCAL_SKEW_Y] = _symbol.skewY;
+	
+	var _boneXML = getBoneXML(_boneName, _frameXML);
 	
 	var _imageItem = _symbol.libraryItem;
 	var _imageName = formatName(_imageItem);

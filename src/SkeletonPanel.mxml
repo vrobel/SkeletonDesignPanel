@@ -8,6 +8,8 @@
 	<fx:Script>
 		<![CDATA[
 			import akdcl.skeleton.Armature;
+			import akdcl.skeleton.Bone;
+			import akdcl.skeleton.objects.BoneData;
 			import akdcl.skeleton.utils.ConstValues;
 			
 			import control.ExportDataCommand;
@@ -401,7 +403,23 @@
 			}
 			
 			private function onBoneDragCompleteHandler(_e:DragEvent):void{
-				armatureDataProxy.changeBoneParent(boneTree.lastMoveNode);
+				if(armatureDataProxy.changeBoneParent(boneTree.lastMoveNode)){
+					var _boneName:String = armatureDataProxy.boneName;
+					animationDataProxy.changeBoneParent(_boneName);
+					if(armature){
+						var _boneData:BoneData = importDataProxy.skeletonData.getArmatureData(importDataProxy.armatureDataProxy.armatureName).getData(_boneName);
+						var _bone:Bone = armature.getBone(_boneName);
+						_bone.origin.copy(_boneData);
+						armature.addBone(_bone, _boneName, _boneData.parent);
+						
+						if(animationDataProxy.movementName){
+							armature.animation.play(animationDataProxy.movementName);
+						}
+					}
+					if(!isSWFSource){
+						JSFL.changeArmatureConnection(armatureDataProxy.armatureName, armatureDataProxy.source);
+					}
+				}
 			}
 			
 		]]>
@@ -426,9 +444,7 @@
 		<s:Group width="100%" height="100%">
 			<s:Label x="10" y="2" height="24" fontWeight="bold" text="Bone" verticalAlign="middle"/>
 			<local:DragTree id="boneTree" y="25" width="100%" height="100%" labelField="{AT_NAME}"
-							dragEnabled="{!isSWFSource}" 
-							dropEnabled="{!isSWFSource}" 
-							/>
+							dragEnabled="true" dropEnabled="true"/>
 		</s:Group>
 		<s:DataGrid id="displayList" maxWidth="350" width="100%" height="100%">
 			<s:columns>

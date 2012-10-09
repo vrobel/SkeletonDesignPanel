@@ -4,7 +4,7 @@ package model
 	import akdcl.skeleton.objects.MovementBoneData;
 	import akdcl.skeleton.objects.MovementData;
 	import akdcl.skeleton.utils.ConstValues;
-	import akdcl.skeleton.utils.generateMovementData;
+	import akdcl.skeleton.utils.generateAnimationData;
 	
 	import flash.events.Event;
 	
@@ -24,6 +24,10 @@ package model
 		private var movementBonesXMLList:XMLList;
 		
 		private var movementBoneXML:XML;
+		
+		public function get source():XML{
+			return xml;
+		}
 		
 		public function get animationName():String{
 			return ImportDataProxy.getElementName(xml);
@@ -136,9 +140,24 @@ package model
 			movementBoneXML = ImportDataProxy.getElementByName(movementBonesXMLList, _boneName);
 		}
 		
+		public function changeBoneParent(_boneName:String):void{
+			generateAnimationData(
+				animationName, 
+				xml, 
+				ImportDataProxy.getInstance().skeletonData.getArmatureData(animationName),
+				ImportDataProxy.getInstance().skeletonData.getAnimationData(animationName)
+			);
+		}
+		
 		private function updateMovement():void{
 			var _animationData:AnimationData = ImportDataProxy.getInstance().skeletonData.getAnimationData(animationName);
-			_animationData.addData(generateMovementData(movementXML));
+			var _movementData:MovementData = _animationData.getData(movementName);
+			
+			_movementData.durationTo = durationTo;
+			_movementData.durationTween = durationTween;
+			_movementData.loop = loop;
+			_movementData.tweenEasing = tweenEasing;
+			
 			MessageDispatcher.dispatchEvent(MessageDispatcher.UPDATE_MOVEMENT_DATA, movementName, movementXML);
 		}
 		
