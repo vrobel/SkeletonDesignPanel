@@ -7,8 +7,8 @@ package message
 	public class MessageDispatcher extends EventDispatcher
 	{
 		static public const LOAD_FLADATA:String = "loadFladata";
-		static public const LOAD_SKELETON_DATA:String = "loadSkeletonData";
-		static public const LOAD_SKELETON_DATA_COMPLETE:String = "loadSkeletonDataComplete";
+		static public const LOAD_ARMATURE_DATA:String = "loadSkeletonData";
+		static public const LOAD_ARMATURE_DATA_COMPLETE:String = "loadSkeletonDataComplete";
 		static public const LOAD_TEXTURE_DATA_COMPLETE:String = "loadTextureDataComplete";
 		static public const LOAD_TEXTURE_DATA:String = "loadTextureData";
 		static public const LOAD_SWF:String = "loadSwf";

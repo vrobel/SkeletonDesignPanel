@@ -9,8 +9,6 @@ package model
 	
 	import mx.collections.XMLListCollection;
 	
-	import utils.JSFL;
-	
 	[Bindable]
 	public class ArmatureDataProxy
 	{

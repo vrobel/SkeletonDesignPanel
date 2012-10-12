@@ -9,8 +9,6 @@ package model
 	
 	import flash.errors.IllegalOperationError;
 	import flash.utils.ByteArray;
-	import flash.utils.clearTimeout;
-	import flash.utils.setTimeout;
 	
 	import mx.collections.XMLListCollection;
 	import mx.collections.ArrayCollection;
@@ -44,8 +42,6 @@ package model
 		
 		private var armaturesXMLList:XMLList;
 		private var animationsXMLList:XMLList;
-		
-		private var setTimeoutID:int;
 		
 		public var dataImportID:int = 0;
 		public var dataImportAC:ArrayCollection = new ArrayCollection(["All library items", "Seleted items", "Exported SWF/PNG"]);
@@ -141,17 +137,13 @@ package model
 				__textureData.dispose();
 			}
 			
-			__skeletonData = new SkeletonData(__skeletonXML);
-			__textureData = new TextureData(__textureXML, __textureBytes, true);
-			
-			__baseFactory.skeletonData = __skeletonData;
-			__baseFactory.textureData = __textureData;
-			
-			setTimeoutID = setTimeout(onUpdateHandler, 400);
+			__textureData = new TextureData(__textureXML, __textureBytes, true, onUpdateHandler);
 		}
 	
 		private function onUpdateHandler():void{
-			clearTimeout(setTimeoutID);
+			__skeletonData = new SkeletonData(__skeletonXML);
+			__baseFactory.skeletonData = __skeletonData;
+			__baseFactory.textureData = __textureData;
 			MessageDispatcher.dispatchEvent(MessageDispatcher.CHANGE_IMPORT_DATA);
 		}
 			

@@ -11,7 +11,7 @@ var DISPLAY = "d";
 var ANIMATIONS = "animations";
 var ANIMATION = "animation";
 var MOVEMENT = "mov";
-var EVENT = "event";
+var EVENT = "evt";
 var FRAME = "f";
 
 var TEXTURE_ATLAS = "TextureAtlas";
@@ -76,7 +76,6 @@ var TEXTURE_SWF = "armatureTextureSWF.swf";
 
 var helpPoint = {x:0, y:0};
 
-/*
 var currentDom;
 var currentLibrary;
 var currentDomName;
@@ -84,17 +83,11 @@ var currentDomName;
 var xml;
 var armaturesXML;
 var animationsXML;
+var texturesXML;
 
 var armatureXML;
 var animationXML;
 var armatureConnectionXML;
-
-var importItems;
-var textureItems;
-var textureLength;
-var textureIndex;
-*/
-
 
 function trace(){
 	var _str = "";
@@ -112,7 +105,7 @@ function formatNumber(_num, _retain){
 	return Math.round(_num * _retain) / 100;
 }
 
-replaceString = function(_strOld, _str, _rep){
+function replaceString(_strOld, _str, _rep){
 	if(_strOld){
 		return _strOld.split(_str).join(_rep);
 	}
@@ -337,6 +330,15 @@ function getDisplayXML(_boneXML, _imageName, _isArmature){
 	return _xml;
 }
 
+function getTextureXML(_imageName){
+	var _xml = texturesXML[SUB_TEXTURE].(@name == _imageName)[0];
+	if(!_xml){
+		_xml = <{SUB_TEXTURE} {A_NAME} = {_imageName}/>;
+		texturesXML.appendChild(_xml);
+	}
+	return _xml;
+}
+
 function generateMovement(_item, _mainFrame, _layers){
 	var _start = _mainFrame.frame.startFrame;
 	var _duration = _mainFrame.duration;
@@ -464,6 +466,9 @@ function generateMovement(_item, _mainFrame, _layers){
 		}
 	}
 	delete _movementXML[BONE][FRAME][AT + A_START];
+	
+	generateMovementEventFrames(_movementXML, _mainFrame);
+	
 	animationXML.appendChild(_movementXML);
 }
 
@@ -485,11 +490,18 @@ function generateFrame(_frame, _boneName, _symbol, _z){
 	var _displayXML = getDisplayXML(_boneXML, _imageName, _isArmature);
 	_frameXML[AT + A_DISPLAY_INDEX] = _displayXML.childIndex();
 	if(_isArmature){
-		Skeleton.generateArmature(_symbol);
+		var _backupArmatureXML = armatureXML;
+		var _backupAnimationXML = animationXML;
+		var _backupArmatureConnectionXML = armatureConnectionXML;
+		
+		Skeleton.generateArmature(_imageName);
+		
+		armatureXML = _backupArmatureXML;
+		animationXML = _backupAnimationXML;
+		armatureConnectionXML = _backupArmatureConnectionXML;
+		
 	}else{
-		if(textureItems.indexOf(_imageItem) < 0){
-			textureItems.push(_imageItem);
-		}
+		getTextureXML(_imageName);
 	}
 	
 	var _str = isSpecialFrame(_frame, MOVEMENT_PREFIX, true);
@@ -555,53 +567,61 @@ function generateFrame(_frame, _boneName, _symbol, _z){
 	return _frameXML;
 }
 
-Skeleton.getArmatureList = function(_items){
+function generateMovementEventFrames(_movementXML, _mainFrame){
+	if(_mainFrame.frames.length > 0){
+		var _start = _mainFrame.frame.startFrame;
+		for each(var _frame in _mainFrame.frames){
+			var _event = isSpecialFrame(_frame, EVENT_PREFIX, true);
+			if(_event){
+				var _eventXML = <{EVENT} {A_NAME} = {_event} {A_START} = {_frame.startFrame - _start} {A_DURATION} = {_frame.duration}/>;
+				_movementXML.appendChild(_eventXML);
+			}
+		}
+	}
+}
+
+Skeleton.getArmatureList = function(_isSelected){
 	fl.outputPanel.clear();
 	currentDom = fl.getDocumentDOM();
 	currentLibrary = currentDom?currentDom.library:null;
 	if(errorDOM()){
-		return 0;
+		return false;
 	}
 	currentDom.exitEditMode();
 	
 	currentDomName = currentDom.name.split(".")[0];
-	xml = null;
 	
-	importItems = [];
-	textureItems = [];
+	var _items = _isSelected?currentLibrary.getSelectedItems():currentLibrary.items;
+	
+	var _importItems = [];
 	for each(var _item in _items){
 		if((_item.symbolType == MOVIE_CLIP || _item.symbolType == GRAPHIC) && isArmatureItem(_item)){
-			importItems.push(_item);
+			formatName(_item);
+			_importItems.push(_item.name);
 		}
 	}
-	return importItems.length;
+	if(_importItems.length > 0){
+		return _importItems;
+	}
+	return false;
 }
 
-Skeleton.generateArmature = function(_item){
-	if(importItems.length == 0){
+Skeleton.generateArmature = function(_armatureName, _isNewXML){
+	var _item = currentLibrary.items[currentLibrary.findItemIndex(_armatureName)];
+	if(!_item){
 		return false;
 	}
-		
-	if(_item){
-		var _index = importItems.indexOf(_item);
-		if(_index >= 0){
-			importItems.splice(_index, 1);
-		}
-	}else{
-		_item = importItems.pop();
-		if(!_item){
-			return true;
-		}
+	if(_isNewXML){
 		xml = <{SKELETON} {A_NAME} = {currentDomName}/>;
 		armaturesXML = <{ARMATURES}/>;
 		animationsXML = <{ANIMATIONS}/>;
+		texturesXML = <{TEXTURE_ATLAS}/>;
 		xml.appendChild(armaturesXML);
 		xml.appendChild(animationsXML);
+		xml.appendChild(texturesXML);
 	}
-	
-	var _armatureName = formatName(_item);
 	if(armaturesXML[ARMATURE].(@name == _armatureName)[0]){
-		return true;
+		return false;
 	}
 	
 	var _layersFiltered = isArmatureItem(_item);
@@ -632,12 +652,13 @@ Skeleton.generateArmature = function(_item){
 			_mainFrame = {};
 			_mainFrame.frame = _frame;
 			_mainFrame.duration = _frame.duration;
+			_mainFrame.frames = [];
 			formatSameName(_frame, _nameDic);
 		}else if(_mainFrame){
 			//继续
 			_mainFrame.duration += _frame.duration;
 			if(_iF + 1 != _length){
-				_mainFrame[_frame.startFrame] = _frame;
+				_mainFrame.frames.push(_frame);
 			}
 		}else{
 			//忽略
@@ -659,51 +680,61 @@ Skeleton.clearTextureSWFItem = function(){
 	}
 	currentLibrary.editItem(TEXTURE_SWF_ITEM);
 	xml = null;
+	armaturesXML = null;
+	animationsXML = null;
+	texturesXML = null;
+
+	armatureXML = null;
+	animationXML = null;
+	armatureConnectionXML = null;
 	
 	var _timeline = currentDom.getTimeline();
 	_timeline.currentLayer = 0;
 	_timeline.removeFrames(0, _timeline.frameCount);
 	_timeline.insertBlankKeyframe(0);
 	_timeline.insertBlankKeyframe(1);
-	return textureItems.length;
 }
 
-Skeleton.addTextureToSWFItem = function(){
-	var _timeline = currentDom.getTimeline();
-	if(textureItems.length ==0){
-		_timeline.removeFrames(1, 1);
+Skeleton.addTextureToSWFItem = function(_textureName, _isLast){
+	var _item = currentLibrary.items[currentLibrary.findItemIndex(_textureName)];
+	if(!_item){
 		return false;
 	}
 	
+	var _timeline = currentDom.getTimeline();
+	
 	_timeline.currentFrame = 0;
-	var _item = textureItems.pop();
-	var _name = _item.name;
 	helpPoint.x = helpPoint.y = 0;
-	if(!currentLibrary.addItemToDocument(helpPoint, _name)){
-		currentLibrary.addItemToDocument(helpPoint, _name);
+	if(!currentLibrary.addItemToDocument(helpPoint, _textureName)){
+		trace("可能内存不足，再次尝试放置贴图！");
+		currentLibrary.addItemToDocument(helpPoint, _textureName);
 	}
 	
 	_symbol = currentDom.selection[0];
 	if(_symbol.symbolType != MOVIE_CLIP){
 		_symbol.symbolType = MOVIE_CLIP;
 	}
-	var _subTextureXML = <{SUB_TEXTURE} {A_NAME} = {_name}/>;
+	var _subTextureXML = <{SUB_TEXTURE} {A_NAME} = {_textureName}/>;
 	_subTextureXML[AT + A_PIVOT_X] = formatNumber(_symbol.x - _symbol.left);
 	_subTextureXML[AT + A_PIVOT_Y] = formatNumber(_symbol.y - _symbol.top);
 	_subTextureXML[AT + A_WIDTH] = Math.ceil(_symbol.width);
 	_subTextureXML[AT + A_HEIGHT] = Math.ceil(_symbol.height);
 	
-	_timeline.currentFrame = 1;
+	if(_isLast){
+		_timeline.removeFrames(1, 1);
+	}else{
+		_timeline.currentFrame = 1;
+	}
 	return _subTextureXML.toXMLString();
 }
 
 Skeleton.packTextures = function(_textureAtlasXML){
 	if(errorDOM()){
-		return;
+		return false;
 	}
 	
 	if(!currentLibrary.itemExists(TEXTURE_SWF_ITEM)){
-		return;
+		return false;
 	}
 	_textureAtlasXML = XML(_textureAtlasXML).toXMLString();
 	_textureAtlasXML = replaceString(_textureAtlasXML, "&lt;", "<");
@@ -738,15 +769,16 @@ Skeleton.packTextures = function(_textureAtlasXML){
 	}
 	currentDom.selectAll();
 	currentDom.selectNone();
+	return true;
 }
 
 Skeleton.exportSWF = function(){
 	if(errorDOM()){
-		return;
+		return "";
 	}
 	
 	if(!currentLibrary.itemExists(TEXTURE_SWF_ITEM)){
-		return;
+		return "";
 	}
 	var _folderURL = fl.configURI;
 	var _pathDelimiter;
@@ -755,7 +787,7 @@ Skeleton.exportSWF = function(){
 	}else if(_folderURL.indexOf("\\")>=0){
 		_pathDelimiter = "\\";
 	}else{
-		return;
+		return "";
 	}
 	_folderURL = _folderURL + "WindowSWF" + _pathDelimiter + SKELETON_PANEL;
 	if(!FLfile.exists(_folderURL)){
@@ -769,27 +801,28 @@ Skeleton.exportSWF = function(){
 //通过骨架名写入骨架关联数据
 Skeleton.changeArmatureConnection = function(_armatureName, _data){
 	if(errorDOM()){
-		return;
+		return false;
 	}
 	var _item = currentLibrary.items[currentLibrary.findItemIndex(_armatureName)];
 	if(!_item){
 		trace("未找到 " + _armatureName + " 元件，请确认保持 FLA 文件同步！");
-		return;
+		return false;
 	}
 	_data = XML(_data).toXMLString();
 	_data = replaceString(_data, "&lt;", "<");
 	_data = replaceString(_data, "&gt;", ">");
 	setArmatureConnection(_item, _data);
+	return true;
 }
 
 Skeleton.changeMovement = function(_armatureName, _movementName, _data){
 	if(errorDOM()){
-		return;
+		return false;
 	}
 	var _item = currentLibrary.items[currentLibrary.findItemIndex(_armatureName)];
 	if(!_item){
 		trace("未找到 " + _armatureName + " 元件，请确认保持 FLA 文件同步！");
-		return;
+		return false;
 	}
 	
 	_data = XML(_data).toXMLString();
@@ -811,6 +844,7 @@ Skeleton.changeMovement = function(_armatureName, _movementName, _data){
 	}
 	delete _data[BONE].*;
 	_item.addData(ANIMATION_DATA, STRING, _animationXML.toXMLString());
+	return true;
 }
 
 })();

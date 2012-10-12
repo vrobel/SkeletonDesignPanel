@@ -14,10 +14,11 @@ package control
 	import makeswfs.make;
 	
 	import message.MessageDispatcher;
+	import message.Message;
 	
 	import model.ImportDataProxy;
+	import model.JSFLProxy;
 	
-	import utils.JSFL;
 	import utils.PNGEncoder;
 	
 	public class ExportDataCommand
@@ -40,6 +41,7 @@ package control
 			urlLoader = new URLLoader();
 			
 			importDataProxy = ImportDataProxy.getInstance();
+			
 		}
 		
 		public function export(_exportType:uint, _reloadFLAData:Boolean):void{
@@ -53,13 +55,19 @@ package control
 			}
 			textureData = null;
 			if(_reloadFLAData){
-				var _swfURL:String = JSFL.exportSWF();
-				urlLoader.addEventListener(Event.COMPLETE, onURLLoaderCompleteHandler);
-				urlLoader.dataFormat = URLLoaderDataFormat.BINARY;
-				urlLoader.load(new URLRequest(_swfURL));
+				MessageDispatcher.addEventListener(JSFLProxy.EXPORT_SWF, jsflProxyHandler);
+				JSFLProxy.getInstance().exportSWF();
 			}else{
 				exportStart();
 			}
+		}
+		
+		private function jsflProxyHandler(_e:Message):void{
+			MessageDispatcher.removeEventListener(JSFLProxy.EXPORT_SWF, jsflProxyHandler);
+			var _result:String = _e.parameters[0];
+			urlLoader.addEventListener(Event.COMPLETE, onURLLoaderCompleteHandler);
+			urlLoader.dataFormat = URLLoaderDataFormat.BINARY;
+			urlLoader.load(new URLRequest(_result));
 		}
 		
 		private function onURLLoaderCompleteHandler(_e:Event):void{

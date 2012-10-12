@@ -22,6 +22,7 @@
 			import model.AnimationDataProxy;
 			import model.ArmatureDataProxy;
 			import model.ImportDataProxy;
+			import model.JSFLProxy;
 			
 			import mx.controls.Alert;
 			import mx.events.DragEvent;
@@ -30,10 +31,11 @@
 			
 			import spark.events.GridSelectionEvent;
 			
-			import utils.JSFL;
 			import utils.TextureUtil;
 			
 			private static const AT_NAME:String = ConstValues.AT + ConstValues.A_NAME;
+			
+			private var jsflProxy:JSFLProxy;
 			
 			[Bindable]
 			private var importDataProxy:ImportDataProxy;
@@ -60,7 +62,7 @@
 			private var shape:Shape;
 			
 			private function onCreationCompleteHandler():void{
-				JSFL.isAvailable;
+				jsflProxy = JSFLProxy.getInstance();
 				importDataProxy = ImportDataProxy.getInstance();
 				armatureDataProxy = importDataProxy.armatureDataProxy;
 				animationDataProxy = importDataProxy.animationDataProxy;
@@ -76,9 +78,25 @@
 				boneTree.addEventListener(ListEvent.CHANGE, onMovementBoneChangeHandler);
 				boneTree.addEventListener(DragEvent.DRAG_COMPLETE, onBoneDragCompleteHandler);
 				
+				sliderDurationTo.addEventListener(Event.CHANGE, movementValueChangeHandler);
+				numDurationTo.addEventListener(Event.CHANGE, movementValueChangeHandler);
+				
+				sliderDurationTween.addEventListener(Event.CHANGE, movementValueChangeHandler);
+				numDurationTween.addEventListener(Event.CHANGE, movementValueChangeHandler);
+				
+				checkLoop.addEventListener(Event.CHANGE, movementValueChangeHandler);
+				
+				sliderTweenEasing.addEventListener(Event.CHANGE, movementValueChangeHandler);
+				
+				sliderScale.addEventListener(Event.CHANGE, movementValueChangeHandler);
+				numScale.addEventListener(Event.CHANGE, movementValueChangeHandler);
+				
+				sliderDelay.addEventListener(Event.CHANGE, movementValueChangeHandler);
+				numDelay.addEventListener(Event.CHANGE, movementValueChangeHandler);
+				
 				MessageDispatcher.addEventListener(MessageDispatcher.LOAD_FLADATA, onCommandHandler);
-				MessageDispatcher.addEventListener(MessageDispatcher.LOAD_SKELETON_DATA, onCommandHandler);
-				MessageDispatcher.addEventListener(MessageDispatcher.LOAD_SKELETON_DATA_COMPLETE, onCommandHandler);
+				MessageDispatcher.addEventListener(MessageDispatcher.LOAD_ARMATURE_DATA, onCommandHandler);
+				MessageDispatcher.addEventListener(MessageDispatcher.LOAD_ARMATURE_DATA_COMPLETE, onCommandHandler);
 				MessageDispatcher.addEventListener(MessageDispatcher.LOAD_TEXTURE_DATA, onCommandHandler);
 				MessageDispatcher.addEventListener(MessageDispatcher.LOAD_TEXTURE_DATA_COMPLETE, onCommandHandler);
 				MessageDispatcher.addEventListener(MessageDispatcher.LOAD_SWF, onCommandHandler);
@@ -133,7 +151,7 @@
 				switch(importDataProxy.textureSortID){
 					case 0:
 						TextureUtil.packTextures(importDataProxy.textureMaxWidth, importDataProxy.texturePadding, false, importDataProxy.textureXML);
-						JSFL.packTextures(importDataProxy.textureXML);
+						jsflProxy.packTextures(importDataProxy.textureXML);
 						isTextureChanged = true;
 						break;
 				}
@@ -158,17 +176,34 @@
 				var _movementName:String;
 				switch(_e.type){
 					case MessageDispatcher.LOAD_FLADATA:
+						if(_e.parameters[0] > 0){
+							alert = Alert.show("导入中请稍后...");
+							if(armature){
+								armature.animation.stop();
+							}
+						}else{
+							alert = Alert.show("未找到符合骨架结构的元件！");
+						}
+						break;
 					case MessageDispatcher.LOAD_FILEDATA:
 						alert = Alert.show("导入中请稍后...");
 						if(armature){
 							armature.animation.stop();
 						}
 						break;
-					case MessageDispatcher.LOAD_SKELETON_DATA:
+					case MessageDispatcher.LOAD_ARMATURE_DATA:
+						if(alert){
+							//+ _e.parameters[0]
+							alert.title = "Read armature " + _e.parameters[1] + "/" + _e.parameters[2];
+						}
 						break;
-					case MessageDispatcher.LOAD_SKELETON_DATA_COMPLETE:
+					case MessageDispatcher.LOAD_ARMATURE_DATA_COMPLETE:
 						break;
 					case MessageDispatcher.LOAD_TEXTURE_DATA:
+						if(alert){
+							//+ _e.parameters[0]
+							alert.title = "Read texture " + _e.parameters[1] + "/" + _e.parameters[2];
+						}
 						break;
 					case MessageDispatcher.LOAD_TEXTURE_DATA_COMPLETE:
 						break;
@@ -202,6 +237,10 @@
 						clearAlert();
 						break;
 					case MessageDispatcher.CHANGE_IMPORT_DATA:
+						for each(armature in armatures){
+							armature.dispose();
+						}
+						armature = null;
 						armatures = {};
 						
 						armatureList.selectedIndex = -1;
@@ -263,8 +302,8 @@
 							sliderDurationTween.enabled = false;
 							checkLoop.selected = false;
 							checkLoop.enabled = false;
-							sliderTween.value = 0;
-							sliderTween.enabled = false;
+							sliderTweenEasing.value = 0;
+							sliderTweenEasing.enabled = false;
 							numScale.enabled = false;
 							numDelay.enabled = false;
 							sliderScale.enabled = false;
@@ -276,8 +315,8 @@
 							sliderDurationTween.enabled = true;
 							checkLoop.selected = animationDataProxy.loop;
 							checkLoop.enabled = true;
-							sliderTween.value = animationDataProxy.tweenEasing;
-							sliderTween.enabled = true;
+							sliderTweenEasing.value = animationDataProxy.tweenEasing;
+							sliderTweenEasing.enabled = true;
 							numScale.enabled = true;
 							numDelay.enabled = true;
 							sliderScale.enabled = true;
@@ -301,7 +340,7 @@
 							armature.animation.play(_movementName);
 						}
 						if(!isSWFSource){
-							JSFL.changeMovement(armatureDataProxy.armatureName, _movementName, _e.parameters[1]);
+							jsflProxy.changeMovement(armatureDataProxy.armatureName, _movementName, _e.parameters[1]);
 						}
 						break;
 					case MessageDispatcher.UPDATE_MOVEMENTBONE_DATA:
@@ -312,7 +351,7 @@
 						if(!isSWFSource){
 							var _movementXMLCopy:XML = _e.parameters[1].copy();
 							delete _movementXMLCopy.elements(ConstValues.BONE).*;
-							JSFL.changeMovement(armatureDataProxy.armatureName, _movementName, _movementXMLCopy);
+							jsflProxy.changeMovement(armatureDataProxy.armatureName, _movementName, _movementXMLCopy);
 						}
 						break;
 				}
@@ -417,8 +456,43 @@
 						}
 					}
 					if(!isSWFSource){
-						JSFL.changeArmatureConnection(armatureDataProxy.armatureName, armatureDataProxy.source);
+						jsflProxy.changeArmatureConnection(armatureDataProxy.armatureName, armatureDataProxy.source);
 					}
+				}
+			}
+			
+			private function movementValueChangeHandler(_e:Event):void{
+				switch(_e.target){
+					case sliderDurationTo:
+						numDurationTo.value = sliderDurationTo.value;
+					case numDurationTo:
+						sliderDurationTo.value = numDurationTo.value;
+						animationDataProxy.durationTo = numDurationTo.value;
+						break;
+					case sliderDurationTween:
+						numDurationTween.value = sliderDurationTween.value;
+					case numDurationTween:
+						sliderDurationTween.value = numDurationTween.value;
+						animationDataProxy.durationTween = numDurationTween.value;
+						break;
+					case checkLoop:
+						animationDataProxy.loop = checkLoop.selected;
+						break;
+					case sliderTweenEasing:
+						animationDataProxy.tweenEasing = sliderTweenEasing.value;
+						break;
+					case sliderScale:
+						numScale.value = sliderScale.value;
+					case numScale:
+						sliderScale.value = numScale.value;
+						animationDataProxy.boneScale = numScale.value;
+						break;
+					case sliderDelay:
+						numDelay.value = sliderDelay.value;
+					case numDelay:
+						sliderDelay.value = numDelay.value;
+						animationDataProxy.boneDelay = numDelay.value;
+						break;
 				}
 			}
 			
@@ -458,29 +532,28 @@
 		<s:Group width="170" height="100%">
 			<s:Label x="10" y="10" width="100" height="24" text="Tween time" verticalAlign="middle"/>
 			<s:NumericStepper id="numDurationTo" x="105" y="10" width="55" height="24" textAlign="right" 
-							  minimum="0" maximum="300" snapInterval="1" value="@{animationDataProxy.durationTo}"/>
+							  minimum="0" maximum="3000" snapInterval="1"/>
 			<s:HSlider id="sliderDurationTo" x="10" y="40" width="150" 
-					   minimum="0" maximum="300" snapInterval="1" value="@{animationDataProxy.durationTo}"/>
+					   minimum="0" maximum="100" snapInterval="1"/>
 			<s:Label x="10" y="60" width="100" height="24" text="Animation time" verticalAlign="middle"/>
 			<s:NumericStepper id="numDurationTween" x="105" y="60" width="55" height="24" textAlign="right" 
-							  minimum="0" maximum="1000" snapInterval="1" value="@{animationDataProxy.durationTween}"/>
+							  minimum="0" maximum="3000" snapInterval="1"/>
 			<s:HSlider id="sliderDurationTween" x="10" y="90" width="150"
-					   minimum="0" maximum="1000" snapInterval="1" value="@{animationDataProxy.durationTween}"/>
-			<s:CheckBox id="checkLoop" x="105" y="108" width="60" height="24" label="Loop"
-						selected="@{animationDataProxy.loop}"/>
+					   minimum="0" maximum="100" snapInterval="1"/>
+			<s:CheckBox id="checkLoop" x="105" y="108" width="60" height="24" label="Loop"/>
 			<s:Label x="10" y="110" width="100" height="24" text="Keyframe easing" verticalAlign="middle"/>
-			<s:HSlider id="sliderTween" x="10" y="140" width="150"
-					   minimum="-1" maximum="2" snapInterval="0.05" value="@{animationDataProxy.tweenEasing}"/>
+			<s:HSlider id="sliderTweenEasing" x="10" y="140" width="150"
+					   minimum="-1" maximum="2" snapInterval="0.05"/>
 			<s:Label x="10" y="190" width="100" height="24" text="Bone animation scale" verticalAlign="middle"/>
 			<s:NumericStepper id="numScale" x="105" y="190" width="55" height="24"
-							  minimum="0" maximum="400" snapInterval="1" textAlign="right" value="@{animationDataProxy.boneScale}"/>
+							  minimum="0" maximum="1000" snapInterval="1" textAlign="right"/>
 			<s:HSlider id="sliderScale" x="10" y="220" width="150"
-					   minimum="0" maximum="400" snapInterval="5" value="@{animationDataProxy.boneScale}"/>
+					   minimum="0" maximum="200" snapInterval="5"/>
 			<s:Label x="10" y="240" width="100" height="24" text="Bone Animation delay" verticalAlign="middle"/>
 			<s:NumericStepper id="numDelay" x="105" y="240" width="55" height="24" textAlign="right" 
-							  minimum="-100" maximum="100" snapInterval="1" value="@{animationDataProxy.boneDelay}"/>
+							  minimum="-100" maximum="100" snapInterval="1"/>
 			<s:HSlider id="sliderDelay" x="10" y="270" width="150"
-					   minimum="-100" maximum="100" snapInterval="5" value="@{animationDataProxy.boneDelay}"/>
+					   minimum="-100" maximum="100" snapInterval="5"/>
 		</s:Group>
 		<s:Scroller width="100%" height="100%">
 			<s:Group>
