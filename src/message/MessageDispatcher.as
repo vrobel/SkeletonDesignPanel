@@ -16,6 +16,7 @@ package message
 		
 		static public const LOAD_FILEDATA:String = "loadFiledata";
 		static public const LOAD_FILEDATA_ERROR:String = "loadFiledataError";
+		static public const LOAD_FILEDATA_PROGRESS:String = "loadFiledataProgress";
 		static public const LOAD_FILEDATA_COMPLETE:String = "loadFiledataComplete";
 		
 		static public const EXPORT:String = "export";

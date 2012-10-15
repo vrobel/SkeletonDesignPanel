@@ -1,0 +1,78 @@
+<?xml version="1.0" encoding="utf-8"?>
+<s:TitleWindow xmlns:fx="http://ns.adobe.com/mxml/2009"
+		 xmlns:s="library://ns.adobe.com/flex/spark"
+		 xmlns:mx="library://ns.adobe.com/flex/mx"
+		 width="300" height="250" title="Import"
+		 close="closeWindow()"
+		 >
+	<fx:Script>
+		<![CDATA[
+			import control.LoadFLADataCommand;
+			import control.LoadFileDataCommand;
+			
+			import message.Message;
+			import message.MessageDispatcher;
+			
+			import model.ImportDataProxy;
+			
+			import mx.events.CloseEvent;
+			import mx.managers.PopUpManager;
+			
+			private function importData():void{
+				switch(ImportDataProxy.getInstance().dataImportID){
+					case 0:
+						LoadFLADataCommand.instance.load(false);
+						break;
+					case 1:
+						LoadFLADataCommand.instance.load(true);
+						break;
+					case 2:
+						LoadFileDataCommand.instance.load();
+						break;
+				}
+				MessageDispatcher.addEventListener(MessageDispatcher.LOAD_FLADATA, onCommandHandler);
+				MessageDispatcher.addEventListener(MessageDispatcher.LOAD_FILEDATA, onCommandHandler);
+			}
+			
+			private function onCommandHandler(_e:Message):void{
+				closeWindow();
+			}
+			
+			private function closeWindow():void{
+				MessageDispatcher.addEventListener(MessageDispatcher.LOAD_FLADATA, onCommandHandler);
+				MessageDispatcher.addEventListener(MessageDispatcher.LOAD_FILEDATA, onCommandHandler);
+				PopUpManager.removePopUp(this);
+			}
+		]]>
+	</fx:Script>
+	<fx:Declarations>
+		<!-- 将非可视元素（例如服务、值对象）放在此处 -->
+	</fx:Declarations>
+	<s:VGroup x="10" y="10" width="100" height="150" gap="6" horizontalAlign="right">
+		<s:Label width="100%" height="24" text="Import from" textAlign="right"
+				 verticalAlign="middle"/>
+		<s:Label width="100%" height="24" text="Texture sort" textAlign="right"
+				 verticalAlign="middle"/>
+		<s:Label width="100%" height="24" text="Texture width" textAlign="right"
+				 verticalAlign="middle"/>
+		<s:Label width="100%" height="24" text="Texture padding" textAlign="right"
+				 verticalAlign="middle"/>
+	</s:VGroup>
+	<s:VGroup x="120" y="10" width="160" height="150" gap="6">
+		<s:ComboBox width="100%" height="24" dataProvider="{ImportDataProxy.getInstance().dataImportAC}"
+					selectedIndex="@{ImportDataProxy.getInstance().dataImportID}" textAlign="right"/>
+		<s:ComboBox width="100%" height="24" dataProvider="{ImportDataProxy.getInstance().textureSortAC}"
+					enabled="{!ImportDataProxy.getInstance().isSWFSource}" selectedIndex="@{ImportDataProxy.getInstance().textureSortID}"
+					textAlign="right"/>
+		<s:ComboBox width="100%" height="24" change="{ImportDataProxy.getInstance().updateTextures()}"
+					dataProvider="{ImportDataProxy.getInstance().textureMaxWidthAC}"
+					enabled="{ImportDataProxy.getInstance().textureSortID == 0 &amp;&amp; !ImportDataProxy.getInstance().isSWFSource}"
+					selectedIndex="@{ImportDataProxy.getInstance().textureMaxWidthID}" textAlign="right"/>
+		<s:NumericStepper width="100%" height="24" change="{ImportDataProxy.getInstance().updateTextures()}"
+						  enabled="{ImportDataProxy.getInstance().textureSortID == 0 &amp;&amp; !ImportDataProxy.getInstance().isSWFSource}"
+						  maximum="100" minimum="0" textAlign="right"
+						  value="@{ImportDataProxy.getInstance().texturePadding}"/>
+	</s:VGroup>
+	<s:Button right="140" bottom="20" width="100" height="24" label="OK" click="importData()"/>
+	<s:Button right="20" bottom="20" width="100" height="24" label="Cancel" click="closeWindow()"/>
+</s:TitleWindow>

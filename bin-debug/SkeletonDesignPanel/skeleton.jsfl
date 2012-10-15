@@ -11,7 +11,6 @@ var DISPLAY = "d";
 var ANIMATIONS = "animations";
 var ANIMATION = "animation";
 var MOVEMENT = "mov";
-var EVENT = "evt";
 var FRAME = "f";
 
 var TEXTURE_ATLAS = "TextureAtlas";
@@ -183,7 +182,7 @@ function isSpecialFrame(_frame, _framePrefix, _returnName){
 				return _str.substr(1);
 			}
 		}
-		trace("错误的特殊关键帧命名！", _frame.name);
+		//_frame.name 错误的特殊关键帧命名！
 		return false;
 	}
 	return _b;
@@ -571,11 +570,20 @@ function generateMovementEventFrames(_movementXML, _mainFrame){
 	if(_mainFrame.frames.length > 0){
 		var _start = _mainFrame.frame.startFrame;
 		for each(var _frame in _mainFrame.frames){
+			var _eventXML = <{FRAME} {A_START} = {_frame.startFrame - _start} {A_DURATION} = {_frame.duration}/>;
 			var _event = isSpecialFrame(_frame, EVENT_PREFIX, true);
+			var _movement = isSpecialFrame(_frame, MOVEMENT_PREFIX, true);
+			var _sound = _frame.soundName && (_frame.soundLibraryItem.linkageClassName || _frame.soundName);
 			if(_event){
-				var _eventXML = <{EVENT} {A_NAME} = {_event} {A_START} = {_frame.startFrame - _start} {A_DURATION} = {_frame.duration}/>;
-				_movementXML.appendChild(_eventXML);
+				_eventXML[AT + A_EVENT] = _event;
 			}
+			if(_movement){
+				_eventXML[AT + A_MOVEMENT] = _movement;
+			}
+			if(_sound){
+				_frameXML[AT + A_SOUND] = _sound;
+			}
+			_movementXML.appendChild(_eventXML);
 		}
 	}
 }
@@ -652,14 +660,12 @@ Skeleton.generateArmature = function(_armatureName, _isNewXML){
 			_mainFrame = {};
 			_mainFrame.frame = _frame;
 			_mainFrame.duration = _frame.duration;
-			_mainFrame.frames = [];
+			_mainFrame.frames = [_frame];
 			formatSameName(_frame, _nameDic);
 		}else if(_mainFrame){
 			//继续
 			_mainFrame.duration += _frame.duration;
-			if(_iF + 1 != _length){
-				_mainFrame.frames.push(_frame);
-			}
+			_mainFrame.frames.push(_frame);
 		}else{
 			//忽略
 			continue;

@@ -79,7 +79,7 @@ package control
 				jsflProxy.packTextures(textureXML);
 				return;
 			}
-			var _textureName:String = ImportDataProxy.getElementName(textureXMLList[textureAddIndex]);
+			var _textureName:String = textureXMLList[textureAddIndex].attribute(ConstValues.A_NAME)
 			MessageDispatcher.dispatchEvent(MessageDispatcher.LOAD_TEXTURE_DATA, _textureName, totalCount - textureAddIndex, totalCount);
 			jsflProxy.addTextureToSWFItem(_textureName, textureAddIndex == 0);
 			delete textureXMLList[textureAddIndex];
@@ -186,7 +186,7 @@ package control
 		private function onURLLoaderCompleteHandler(_e:Event):void{
 			isLoading = false;
 			urlLoader.removeEventListener(Event.COMPLETE, onURLLoaderCompleteHandler);
-			MessageDispatcher.dispatchEvent(MessageDispatcher.LOAD_SWF_COMPLETE, skeletonXML, textureXML, make(_e.target.data, textureXML));
+			MessageDispatcher.dispatchEvent(MessageDispatcher.LOAD_SWF_COMPLETE, skeletonXML, textureXML, make(_e.target.data, textureXML), false);
 		}
 	}
 }

@@ -4,6 +4,7 @@ package control
 	
 	import flash.events.Event;
 	import flash.events.IOErrorEvent;
+	import flash.events.ProgressEvent;
 	import flash.net.FileFilter;
 	import flash.net.FileReference;
 	import flash.net.URLLoader;
@@ -12,8 +13,6 @@ package control
 	import flash.utils.ByteArray;
 	
 	import message.MessageDispatcher;
-	
-	import model.ImportDataProxy;
 
 	public class LoadFileDataCommand
 	{
@@ -36,8 +35,9 @@ package control
 			if(_url){
 				isLoading = true;
 				MessageDispatcher.dispatchEvent(MessageDispatcher.LOAD_FILEDATA);
-				urlLoader.addEventListener(Event.COMPLETE, onURLLoaderHandler);
 				urlLoader.addEventListener(IOErrorEvent.IO_ERROR, onURLLoaderHandler);
+				urlLoader.addEventListener(ProgressEvent.PROGRESS, onURLLoaderHandler);
+				urlLoader.addEventListener(Event.COMPLETE, onURLLoaderHandler);
 				urlLoader.dataFormat = URLLoaderDataFormat.BINARY;
 				urlLoader.load(new URLRequest(_url));
 			}else{
@@ -53,6 +53,10 @@ package control
 				case IOErrorEvent.IO_ERROR:
 					isLoading = false;
 					MessageDispatcher.dispatchEvent(MessageDispatcher.LOAD_FILEDATA_ERROR);
+					break;
+				case ProgressEvent.PROGRESS:
+					var _progressEvent:ProgressEvent = _e as ProgressEvent;
+					MessageDispatcher.dispatchEvent(MessageDispatcher.LOAD_FILEDATA_PROGRESS, _progressEvent.bytesLoaded / _progressEvent.bytesTotal );
 					break;
 				case Event.COMPLETE:
 					setData(_e.target.data);
@@ -79,7 +83,7 @@ package control
 		private function setData(_data:ByteArray):void{
 			isLoading = false;
 			var _sat:SkeletonAndTextureRawData = new SkeletonAndTextureRawData(_data);
-			MessageDispatcher.dispatchEvent(MessageDispatcher.LOAD_FILEDATA_COMPLETE, _sat.skeletonXML, _sat.textureXML, _sat.textureBytes);
+			MessageDispatcher.dispatchEvent(MessageDispatcher.LOAD_FILEDATA_COMPLETE, _sat.skeletonXML, _sat.textureXML, _sat.textureBytes, true);
 			_sat.dispose();
 		}
 	}

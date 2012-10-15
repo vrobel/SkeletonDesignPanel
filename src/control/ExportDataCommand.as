@@ -8,8 +8,6 @@ package control
 	import flash.net.URLLoaderDataFormat;
 	import flash.net.URLRequest;
 	import flash.utils.ByteArray;
-	import flash.utils.clearTimeout;
-	import flash.utils.setTimeout;
 	
 	import makeswfs.make;
 	
@@ -27,7 +25,6 @@ package control
 		
 		private var fileREF:FileReference;
 		private var exportType:uint;
-		private var setTimeoutID:int;
 		private var isExporting:Boolean;
 		private var urlLoader:URLLoader;
 		
@@ -73,13 +70,10 @@ package control
 		private function onURLLoaderCompleteHandler(_e:Event):void{
 			urlLoader.removeEventListener(Event.COMPLETE, onURLLoaderCompleteHandler);
 			textureBytesReload = make(_e.target.data, importDataProxy.textureXML);
-			textureData = new TextureData(importDataProxy.textureXML, textureBytesReload, true);
-			
-			setTimeoutID = setTimeout(exportStart, 400);
+			textureData = new TextureData(importDataProxy.textureXML, textureBytesReload, true, exportStart);
 		}
 		
 		private function exportStart():void{
-			clearTimeout(setTimeoutID);
 			var _data:ByteArray;
 			switch(exportType){
 				case 0:
@@ -137,6 +131,7 @@ package control
 		}
 		
 		private function exportSave(_data:ByteArray, _name:String):void{
+			MessageDispatcher.dispatchEvent(MessageDispatcher.EXPORT, _name);
 			fileREF.addEventListener(Event.CANCEL, onFileSaveHandler);
 			fileREF.addEventListener(Event.COMPLETE, onFileSaveHandler);
 			fileREF.save(_data, _name);
@@ -151,6 +146,7 @@ package control
 					MessageDispatcher.dispatchEvent(MessageDispatcher.EXPORT_CANCEL);
 					break;
 				case Event.COMPLETE:
+					importDataProxy.isTextureChanged = false;
 					MessageDispatcher.dispatchEvent(MessageDispatcher.EXPORT_COMPLETE);
 					break;
 			}

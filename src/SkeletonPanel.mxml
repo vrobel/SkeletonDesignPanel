@@ -12,9 +12,7 @@
 			import akdcl.skeleton.objects.BoneData;
 			import akdcl.skeleton.utils.ConstValues;
 			
-			import control.ExportDataCommand;
-			import control.LoadFLADataCommand;
-			import control.LoadFileDataCommand;
+			import flash.filters.GlowFilter;
 			
 			import message.Message;
 			import message.MessageDispatcher;
@@ -25,6 +23,7 @@
 			import model.JSFLProxy;
 			
 			import mx.controls.Alert;
+			import mx.events.ColorPickerEvent;
 			import mx.events.DragEvent;
 			import mx.events.ListEvent;
 			import mx.managers.PopUpManager;
@@ -46,20 +45,18 @@
 			[Bindable]
 			private var animationDataProxy:AnimationDataProxy;
 			
-			[Bindable]
-			private var isSWFSource:Boolean;
-			
 			private var armatures:Object;
 			private var isDragedArmature:Boolean;
-			private var isTextureChanged:Boolean;
 			
 			private var armature:Armature;
+			private var boneDisplay:Object;
+			private var boneDisplayGlowFilter:GlowFilter = new GlowFilter(0xFF0000,0.5,8,8,4);
 			
-			private var maxArmatureWidth:int;
-			private var maxArmatureHeight:int;
 			private var alert:Alert;
 			private var container:Sprite;
 			private var shape:Shape;
+			private var maxArmatureWidth:int;
+			private var maxArmatureHeight:int;
 			
 			private function onCreationCompleteHandler():void{
 				jsflProxy = JSFLProxy.getInstance();
@@ -104,6 +101,7 @@
 				
 				MessageDispatcher.addEventListener(MessageDispatcher.LOAD_FILEDATA, onCommandHandler);
 				MessageDispatcher.addEventListener(MessageDispatcher.LOAD_FILEDATA_ERROR, onCommandHandler);
+				MessageDispatcher.addEventListener(MessageDispatcher.LOAD_FILEDATA_PROGRESS, onCommandHandler);
 				MessageDispatcher.addEventListener(MessageDispatcher.LOAD_FILEDATA_COMPLETE, onCommandHandler);
 				
 				MessageDispatcher.addEventListener(MessageDispatcher.EXPORT, onCommandHandler);
@@ -131,37 +129,15 @@
 			}
 			
 			private function importData():void{
-				switch(importDataProxy.dataImportID){
-					case 0:
-						LoadFLADataCommand.instance.load(false);
-						break;
-					case 1:
-						LoadFLADataCommand.instance.load(true);
-						break;
-					case 2:
-						LoadFileDataCommand.instance.load();
-						break;
-				}
-			}
-			
-			private function updateTexture():void{
-				if(isSWFSource || !importDataProxy.skeletonName){
-					return;
-				}
-				switch(importDataProxy.textureSortID){
-					case 0:
-						TextureUtil.packTextures(importDataProxy.textureMaxWidth, importDataProxy.texturePadding, false, importDataProxy.textureXML);
-						jsflProxy.packTextures(importDataProxy.textureXML);
-						isTextureChanged = true;
-						break;
-				}
+				var _window:ImportWindow = new ImportWindow();
+				PopUpManager.addPopUp(_window, this, true);
+				PopUpManager.centerPopUp(_window);
 			}
 			
 			private function exportData():void{
-				if(!importDataProxy.skeletonName){
-					return;
-				}
-				ExportDataCommand.instance.export(importDataProxy.dataExportID, isTextureChanged);
+				var _window:ExportWindow = new ExportWindow();
+				PopUpManager.addPopUp(_window, this, true);
+				PopUpManager.centerPopUp(_window);
 			}
 			
 			private function clearAlert():void{
@@ -177,18 +153,12 @@
 				switch(_e.type){
 					case MessageDispatcher.LOAD_FLADATA:
 						if(_e.parameters[0] > 0){
-							alert = Alert.show("导入中请稍后...");
+							alert = Alert.show("Waitting...");
 							if(armature){
 								armature.animation.stop();
 							}
 						}else{
 							alert = Alert.show("未找到符合骨架结构的元件！");
-						}
-						break;
-					case MessageDispatcher.LOAD_FILEDATA:
-						alert = Alert.show("导入中请稍后...");
-						if(armature){
-							armature.animation.stop();
 						}
 						break;
 					case MessageDispatcher.LOAD_ARMATURE_DATA:
@@ -210,22 +180,29 @@
 					case MessageDispatcher.LOAD_SWF:
 						break;
 					case MessageDispatcher.LOAD_SWF_COMPLETE:
-						isSWFSource = false;
-						isTextureChanged = false;
 						clearAlert();
-						importDataProxy.setData(_e.parameters[0], _e.parameters[1], _e.parameters[2]);
+						importDataProxy.setData(_e.parameters[0], _e.parameters[1], _e.parameters[2], _e.parameters[3]);
+						break;
+					case MessageDispatcher.LOAD_FILEDATA:
+						alert = Alert.show("Waitting...");
+						if(armature){
+							armature.animation.stop();
+						}
 						break;
 					case MessageDispatcher.LOAD_FILEDATA_ERROR:
 						clearAlert();
 						break;
+					case MessageDispatcher.LOAD_FILEDATA_PROGRESS:
+						if(alert){
+							alert.title = "Import progress " + Math.round(_e.parameters[0] * 100) + "%";
+						}
+						break;
 					case MessageDispatcher.LOAD_FILEDATA_COMPLETE:
-						isSWFSource = true;
-						isTextureChanged = false;
 						clearAlert();
-						importDataProxy.setData(_e.parameters[0], _e.parameters[1], _e.parameters[2]);
+						importDataProxy.setData(_e.parameters[0], _e.parameters[1], _e.parameters[2], _e.parameters[3]);
 						break;
 					case MessageDispatcher.EXPORT:
-						alert = Alert.show("导出中请稍后...");
+						alert = Alert.show("Waitting...");
 						break;
 					case MessageDispatcher.EXPORT_CANCEL:
 						clearAlert();
@@ -333,13 +310,28 @@
 						sliderScale.value = _boneScale;
 						sliderDelay.value = _boneDelay;
 						armatureDataProxy.changeBoneDisplay();
+						
+						if(boneDisplay){
+							boneDisplay.filters = null;
+							boneDisplay = null;
+						}
+						
+						if(armature && armature.display){
+							var _bone:Bone = armature.getBone(armatureDataProxy.boneName);
+							if(_bone){
+								boneDisplay = _bone.display || (_bone.childArmature?_bone.childArmature.display:null);
+								if(boneDisplay){
+									boneDisplay.filters = [boneDisplayGlowFilter];
+								}
+							}
+						}
 						break;
 					case MessageDispatcher.UPDATE_MOVEMENT_DATA:
 						_movementName = _e.parameters[0];
 						if(_movementName && armature){
 							armature.animation.play(_movementName);
 						}
-						if(!isSWFSource){
+						if(!importDataProxy.isSWFSource){
 							jsflProxy.changeMovement(armatureDataProxy.armatureName, _movementName, _e.parameters[1]);
 						}
 						break;
@@ -348,9 +340,10 @@
 						if(_movementName && armature){
 							armature.animation.play(_movementName);
 						}
-						if(!isSWFSource){
+						if(!importDataProxy.isSWFSource){
 							var _movementXMLCopy:XML = _e.parameters[1].copy();
 							delete _movementXMLCopy.elements(ConstValues.BONE).*;
+							delete _movementXMLCopy[ConstValues.FRAME];
 							jsflProxy.changeMovement(armatureDataProxy.armatureName, _movementName, _movementXMLCopy);
 						}
 						break;
@@ -455,7 +448,7 @@
 							armature.animation.play(animationDataProxy.movementName);
 						}
 					}
-					if(!isSWFSource){
+					if(!importDataProxy.isSWFSource){
 						jsflProxy.changeArmatureConnection(armatureDataProxy.armatureName, armatureDataProxy.source);
 					}
 				}
@@ -496,10 +489,17 @@
 				}
 			}
 			
+			protected function boneDisplayHighlightColorChangeHandler(event:ColorPickerEvent):void
+			{
+				boneDisplayGlowFilter.color = event.color;
+				
+				if(boneDisplay){
+					boneDisplay.filters = [boneDisplayGlowFilter];
+				}
+			}
+			
 		]]>
 	</fx:Script>
-	<fx:Declarations>
-	</fx:Declarations>
 	<s:HGroup width="100%" height="100%" gap="0">
 		<s:DataGrid id="armatureList" maxWidth="200" width="100%" height="100%">
 			<s:columns>
@@ -517,8 +517,9 @@
 		</s:DataGrid>
 		<s:Group width="100%" height="100%">
 			<s:Label x="10" y="2" height="24" fontWeight="bold" text="Bone" verticalAlign="middle"/>
-			<local:DragTree id="boneTree" y="25" width="100%" height="100%" labelField="{AT_NAME}"
+			<local:DragTree id="boneTree" y="23" width="100%" height="100%" labelField="{AT_NAME}"
 							dragEnabled="true" dropEnabled="true"/>
+			<mx:ColorPicker x="50" y="0" selectedColor="0xFF0000" change="boneDisplayHighlightColorChangeHandler(event)"/>
 		</s:Group>
 		<s:DataGrid id="displayList" maxWidth="350" width="100%" height="100%">
 			<s:columns>
@@ -529,32 +530,6 @@
 		</s:DataGrid>
 	</s:HGroup>
 	<s:HGroup width="100%" height="300" gap="0">
-		<s:Group width="170" height="100%">
-			<s:Label x="10" y="10" width="100" height="24" text="Tween time" verticalAlign="middle"/>
-			<s:NumericStepper id="numDurationTo" x="105" y="10" width="55" height="24" textAlign="right" 
-							  minimum="0" maximum="3000" snapInterval="1"/>
-			<s:HSlider id="sliderDurationTo" x="10" y="40" width="150" 
-					   minimum="0" maximum="100" snapInterval="1"/>
-			<s:Label x="10" y="60" width="100" height="24" text="Animation time" verticalAlign="middle"/>
-			<s:NumericStepper id="numDurationTween" x="105" y="60" width="55" height="24" textAlign="right" 
-							  minimum="0" maximum="3000" snapInterval="1"/>
-			<s:HSlider id="sliderDurationTween" x="10" y="90" width="150"
-					   minimum="0" maximum="100" snapInterval="1"/>
-			<s:CheckBox id="checkLoop" x="105" y="108" width="60" height="24" label="Loop"/>
-			<s:Label x="10" y="110" width="100" height="24" text="Keyframe easing" verticalAlign="middle"/>
-			<s:HSlider id="sliderTweenEasing" x="10" y="140" width="150"
-					   minimum="-1" maximum="2" snapInterval="0.05"/>
-			<s:Label x="10" y="190" width="100" height="24" text="Bone animation scale" verticalAlign="middle"/>
-			<s:NumericStepper id="numScale" x="105" y="190" width="55" height="24"
-							  minimum="0" maximum="1000" snapInterval="1" textAlign="right"/>
-			<s:HSlider id="sliderScale" x="10" y="220" width="150"
-					   minimum="0" maximum="200" snapInterval="5"/>
-			<s:Label x="10" y="240" width="100" height="24" text="Bone Animation delay" verticalAlign="middle"/>
-			<s:NumericStepper id="numDelay" x="105" y="240" width="55" height="24" textAlign="right" 
-							  minimum="-100" maximum="100" snapInterval="1"/>
-			<s:HSlider id="sliderDelay" x="10" y="270" width="150"
-					   minimum="-100" maximum="100" snapInterval="5"/>
-		</s:Group>
 		<s:Scroller width="100%" height="100%">
 			<s:Group>
 				<s:Group id="armatureContainerGroup" mouseWheel="onMouseWheelHandler(event)">
@@ -562,40 +537,36 @@
 				</s:Group>
 			</s:Group>
 		</s:Scroller>
-		<s:Group width="220" height="100%">
-			<s:Button x="10" y="10" width="70" height="24" label="Import" click="{importData()}"
-					  />
-			<s:ComboBox x="90" y="10" width="120" height="24" textAlign="right"
-						dataProvider="{importDataProxy.dataImportAC}"
-						selectedIndex="@{importDataProxy.dataImportID}"
-						/>
-			<s:Button x="10" y="40" width="70" height="24" label="Export" click="{exportData()}"/>
-			<s:ComboBox x="90" y="40" width="120" height="24" textAlign="right"
-						dataProvider="{importDataProxy.dataExportAC}"
-						selectedIndex="@{importDataProxy.dataExportID}"
-						/>
-			<s:Label x="10" y="100" width="90" height="24" text="Texture sort" verticalAlign="middle"/>
-			<s:ComboBox x="110" y="100" width="100" height="24" textAlign="right" 
-						dataProvider="{importDataProxy.textureSortAC}"
-						selectedIndex="@{importDataProxy.textureSortID}"
-						enabled="{!isSWFSource}"
-						/>
-			<s:Label x="10" y="130" width="90" height="24" text="Texture width" verticalAlign="middle"/>
-			<s:ComboBox x="110" y="130" width="100" height="24" textAlign="right"
-						change="{updateTexture()}"
-						dataProvider="{importDataProxy.textureMaxWidthAC}"
-						enabled="{importDataProxy.textureSortID == 0 &amp;&amp; !isSWFSource}"
-						selectedIndex="@{importDataProxy.textureMaxWidthID}"
-						/>
-			<s:Label x="10" y="160" width="90" height="24" text="Texture padding" verticalAlign="middle"/>
-			<s:NumericStepper x="110" y="160" width="100" height="24" textAlign="right" maximum="100" minimum="0"
-							  change="{updateTexture()}"
-							  enabled="{importDataProxy.textureSortID == 0 &amp;&amp; !isSWFSource}"
-							  value="@{importDataProxy.texturePadding}"
-							  />
-			<s:Label x="10" y="220" width="90" height="24" text="Frame rate" verticalAlign="middle"/>
-			<s:NumericStepper id="numFrameRate" x="110" y="220" width="100" height="24" textAlign="right"
+		<s:Group width="300" height="100%">
+			<s:Button x="10" y="10" width="100" height="24" label="Import" click="{importData()}"/>
+			<s:Button x="120" y="10" width="100" height="24" label="Export" click="{exportData()}"/>
+			<s:NumericStepper id="numFrameRate" x="235" y="10" width="55" height="24" textAlign="right"
 							  minimum="1" maximum="120" value="@{stage.frameRate}"/>
+			<s:HSlider id="sliderDurationTo" x="120" y="80" width="100" 
+					   minimum="0" maximum="100" snapInterval="1"/>
+			<s:NumericStepper id="numDurationTo" x="235" y="70" width="55" height="24" textAlign="right" 
+							  minimum="0" maximum="3000" snapInterval="1"/>
+			<s:NumericStepper id="numDurationTween" x="235" y="105" width="55" height="24" textAlign="right" 
+							  minimum="0" maximum="3000" snapInterval="1"/>
+			<s:HSlider id="sliderDurationTween" x="120" y="115" width="100"
+					   minimum="0" maximum="100" snapInterval="1"/>
+			<s:CheckBox id="checkLoop" x="120" y="175" width="60" height="24" label="Loop"/>
+			<s:HSlider id="sliderTweenEasing" x="120" y="150" width="100"
+					   minimum="-1" maximum="2" snapInterval="0.05"/>
+			<s:Label x="10" y="70" width="100" height="24" text="Tween time" verticalAlign="middle"/>
+			<s:Label x="10" y="105" width="100" height="24" text="Animation time" verticalAlign="middle"/>
+			<s:Label x="10" y="140" width="100" height="24" text="Keyframe easing" verticalAlign="middle"/>
+			<s:NumericStepper id="numScale" x="235" y="210" width="55" height="24"
+							  minimum="0" maximum="1000" snapInterval="1" textAlign="right"/>
+			<s:HSlider id="sliderScale" x="120" y="220" width="100"
+					   minimum="0" maximum="200" snapInterval="5"/>
+			<s:Label x="10" y="210" width="100" height="24" text="Bone animation scale" verticalAlign="middle"/>
+			<s:NumericStepper id="numDelay" x="235" y="245" width="55" height="24" textAlign="right" 
+							  minimum="-100" maximum="100" snapInterval="1"/>
+			<s:HSlider id="sliderDelay" x="120" y="255" width="100"
+					   minimum="-100" maximum="100" snapInterval="5"/>
+			<s:Label x="10" y="245" width="100" height="24" text="Bone Animation delay" verticalAlign="middle"/>
+			<s:Label x="10" y="175" width="100" height="24" text="Loop" verticalAlign="middle"/>
 		</s:Group>
 	</s:HGroup>
 </s:VGroup>

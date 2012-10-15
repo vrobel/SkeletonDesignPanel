@@ -5,13 +5,15 @@ package model
 	import akdcl.skeleton.objects.TextureData;
 	import akdcl.skeleton.utils.ConstValues;
 	
-	import message.MessageDispatcher;
-	
 	import flash.errors.IllegalOperationError;
 	import flash.utils.ByteArray;
 	
-	import mx.collections.XMLListCollection;
+	import message.MessageDispatcher;
+	
 	import mx.collections.ArrayCollection;
+	import mx.collections.XMLListCollection;
+	
+	import utils.TextureUtil;
 	
 	[Bindable]
 	public class ImportDataProxy
@@ -59,6 +61,9 @@ package model
 		
 		public var textureSortID:int = 0;
 		public var textureSortAC:ArrayCollection = new ArrayCollection(["MaxRects"]);
+		
+		public var isSWFSource:Boolean;
+		public var isTextureChanged:Boolean;
 		
 		
 		public function get skeletonName():String{
@@ -118,7 +123,10 @@ package model
 			__baseFactory = new BaseFactory();
 		}
 		
-		public function setData(_skeletonXML:XML, _textureXML:XML, _textureData:ByteArray):void{
+		public function setData(_skeletonXML:XML, _textureXML:XML, _textureData:ByteArray, _isSWFSource:Boolean):void{
+			isTextureChanged = false;
+			isSWFSource = _isSWFSource;
+			
 			rawSkeletonXML = _skeletonXML;
 			__skeletonXML = rawSkeletonXML.copy();
 			__textureXML = _textureXML;
@@ -145,6 +153,19 @@ package model
 			__baseFactory.skeletonData = __skeletonData;
 			__baseFactory.textureData = __textureData;
 			MessageDispatcher.dispatchEvent(MessageDispatcher.CHANGE_IMPORT_DATA);
+		}
+		
+		public function updateTextures():void{
+			if(isSWFSource || !skeletonName){
+				return;
+			}
+			/*switch(textureSortID){
+				case 0:
+					break;
+			}*/
+			TextureUtil.packTextures(textureMaxWidth, texturePadding, false, textureXML);
+			JSFLProxy.getInstance().packTextures(textureXML);
+			isTextureChanged = true;
 		}
 			
 		public function getArmatureXMLByName(_name:String = null):XML{
