@@ -567,7 +567,7 @@ function generateFrame(_frame, _boneName, _symbol, _z){
 }
 
 function generateMovementEventFrames(_movementXML, _mainFrame){
-	if(_mainFrame.frames.length > 0){
+	if(_mainFrame.frames.length > 1){
 		var _start = _mainFrame.frame.startFrame;
 		for each(var _frame in _mainFrame.frames){
 			var _eventXML = <{FRAME} {A_START} = {_frame.startFrame - _start} {A_DURATION} = {_frame.duration}/>;

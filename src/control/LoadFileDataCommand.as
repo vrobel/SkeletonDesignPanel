@@ -47,10 +47,11 @@ package control
 		}
 	
 		private function onURLLoaderHandler(_e:Event):void{
-			urlLoader.removeEventListener(Event.COMPLETE, onURLLoaderHandler);
-			urlLoader.removeEventListener(IOErrorEvent.IO_ERROR, onURLLoaderHandler);
 			switch(_e.type){
 				case IOErrorEvent.IO_ERROR:
+					urlLoader.removeEventListener(Event.COMPLETE, onURLLoaderHandler);
+					urlLoader.removeEventListener(IOErrorEvent.IO_ERROR, onURLLoaderHandler);
+					urlLoader.removeEventListener(ProgressEvent.PROGRESS, onURLLoaderHandler);
 					isLoading = false;
 					MessageDispatcher.dispatchEvent(MessageDispatcher.LOAD_FILEDATA_ERROR);
 					break;
@@ -59,6 +60,9 @@ package control
 					MessageDispatcher.dispatchEvent(MessageDispatcher.LOAD_FILEDATA_PROGRESS, _progressEvent.bytesLoaded / _progressEvent.bytesTotal );
 					break;
 				case Event.COMPLETE:
+					urlLoader.removeEventListener(Event.COMPLETE, onURLLoaderHandler);
+					urlLoader.removeEventListener(IOErrorEvent.IO_ERROR, onURLLoaderHandler);
+					urlLoader.removeEventListener(ProgressEvent.PROGRESS, onURLLoaderHandler);
 					setData(_e.target.data);
 					break;
 			}
